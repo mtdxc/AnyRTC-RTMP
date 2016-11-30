@@ -56,6 +56,7 @@ AnyRtmpStreamerImpl::AnyRtmpStreamerImpl(AnyRtmpstreamerEvent&callback)
 		v_h264_encoder_->SetParameter(v_width, v_height, v_framerate_, v_bitrate_);
 	}
 }
+
 AnyRtmpStreamerImpl::~AnyRtmpStreamerImpl(void)
 {
 	if(a_aac_encoder_)
@@ -101,12 +102,9 @@ void AnyRtmpStreamerImpl::SetAutoAdjustBit(bool enabled)
     
 void AnyRtmpStreamerImpl::SetVideoParameter(int w, int h, int bitrate)
 {
-    v_width = w;
-    v_height = h;
-	if (v_h264_encoder_) {
-		v_h264_encoder_->SetRates(bitrate);
-	}
-	v_bitrate_ = bitrate;
+	v_width = w;
+	v_height = h;
+	SetBitrate(bitrate);
 }
     
 void AnyRtmpStreamerImpl::SetBitrate(int bitrate)
@@ -117,10 +115,10 @@ void AnyRtmpStreamerImpl::SetBitrate(int bitrate)
 	v_bitrate_ = bitrate;
 }
 
-void AnyRtmpStreamerImpl::StartStream(const std::string&url)
+void AnyRtmpStreamerImpl::StartStream(const std::string& url)
 {
-   	int bitpersample = 16;
-    rtc::CritScope l(&cs_av_rtmp_);
+	int bitpersample = 16;
+	rtc::CritScope l(&cs_av_rtmp_);
 	if(av_rtmp_ == NULL)
 		av_rtmp_ = new AnyRtmpPush(*this, url);
 	av_rtmp_->SetAudioParameter(a_sample_hz_, bitpersample, a_channels_);
@@ -181,9 +179,9 @@ void AnyRtmpStreamerImpl::OnRtmpDisconnect()
 
 void AnyRtmpStreamerImpl::OnRtmpStatusEvent(int delayMs, int netBand)
 {
-    if (auto_adjust_bit_ && v_h264_encoder_) {
-        v_h264_encoder_->SetNetDelay(delayMs);
-    }
+	if (auto_adjust_bit_ && v_h264_encoder_) {
+		v_h264_encoder_->SetNetDelay(delayMs);
+	}
 	callback_.OnStreamStatus(delayMs, netBand);
 }
 

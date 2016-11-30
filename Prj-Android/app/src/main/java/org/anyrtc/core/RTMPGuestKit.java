@@ -31,16 +31,14 @@ public class RTMPGuestKit {
      * 构造访问jni底层库的对象
      */
     private long fNativeAppId;
-    private Activity mActivity;
     private RTMPGuestHelper mGuestHelper;
     private final LooperExecutor mExecutor;
     private final EglBase mEglBase;
 
     public RTMPGuestKit(Activity act, final RTMPGuestHelper guestHelper) {
         RTMPUtils.assertIsTrue(act != null && guestHelper != null);
-        mActivity = act;
         mGuestHelper = guestHelper;
-        AnyRTMP.Inst().Init(mActivity.getApplicationContext());
+        AnyRTMP.Inst().Init(act.getApplicationContext());
 
         mExecutor = AnyRTMP.Inst().Executor();
         mEglBase = AnyRTMP.Inst().Egl();

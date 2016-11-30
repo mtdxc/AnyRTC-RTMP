@@ -16,10 +16,6 @@
 #include "webrtc/media/engine/webrtcvideoframe.h"
 
 namespace webrtc {
-
-class NullRenderer : public VideoRenderer {
-	void OnFrame(const cricket::VideoFrame& video_frame) override {}
-};
     
 class IOSRender : public VideoRenderer {
 public: // Copy form VideoRendererAdapter.mm
@@ -36,18 +32,15 @@ public: // Copy form VideoRendererAdapter.mm
         // it will hit a DCHECK.
         if (nativeVideoFrame.rotation() != webrtc::kVideoRotation_0 &&
             nativeVideoFrame.video_frame_buffer()->native_handle()) {
-            rtc::scoped_refptr<webrtc::VideoFrameBuffer> i420Buffer =
-            nativeVideoFrame.video_frame_buffer()->NativeToI420Buffer();
+            rtc::scoped_refptr<webrtc::VideoFrameBuffer> i420Buffer = nativeVideoFrame.video_frame_buffer()->NativeToI420Buffer();
             std::unique_ptr<cricket::VideoFrame> cpuFrame(
                                                           new cricket::WebRtcVideoFrame(i420Buffer,
                                                                                         nativeVideoFrame.rotation(),
                                                                                         nativeVideoFrame.timestamp_us()));
-            const cricket::VideoFrame *rotatedFrame =
-            cpuFrame->GetCopyWithRotationApplied();
+            const cricket::VideoFrame *rotatedFrame = cpuFrame->GetCopyWithRotationApplied();
             videoFrame = [[RTCVideoFrame alloc] initWithNativeFrame:rotatedFrame];
         } else {
-            const cricket::VideoFrame *rotatedFrame =
-            nativeVideoFrame.GetCopyWithRotationApplied();
+            const cricket::VideoFrame *rotatedFrame = nativeVideoFrame.GetCopyWithRotationApplied();
             videoFrame = [[RTCVideoFrame alloc] initWithNativeFrame:rotatedFrame];
         }
         CGSize current_size = CGSizeMake(videoFrame.width, videoFrame.height);
@@ -57,12 +50,13 @@ public: // Copy form VideoRendererAdapter.mm
         }
         [video_renderer_ renderFrame:videoFrame];
     }
-    
+/*
 public:
     bool Init(size_t width, size_t height){return true;};
+ 
     void Resize(size_t width, size_t height){};
     void Destroy(){};
-    
+*/
 private:
     id<RTCVideoRenderer> video_renderer_;
     CGSize size_;
@@ -73,7 +67,7 @@ VideoRenderer* VideoRenderer::CreatePlatformRenderer(const void* hwnd,
                                      size_t height)
 {
     IOSRender* render = new IOSRender((__bridge id<RTCVideoRenderer>)hwnd);
-    render->Init(width, height);
+    //render->Init(width, height);
     return render;
 }
 

@@ -1,4 +1,4 @@
-/*
+﻿/*
 *  Copyright (c) 2016 The AnyRTC project authors. All Rights Reserved.
 *
 *  Please visit https://www.anyrtc.io for detail.
@@ -36,8 +36,8 @@ public:
 	virtual ~PlyDecoder();
 
 	void SetVideoRender(rtc::VideoSinkInterface<cricket::VideoFrame> *render){ video_render_ = render; };
-    bool IsPlaying();
-    int  CacheTime();
+	bool IsPlaying();
+	int  CacheTime();
 
 	void AddH264Data(const uint8_t*pdata, int len, uint32_t ts);
 	void AddAACData(const uint8_t*pdata, int len, uint32_t ts);
@@ -62,8 +62,11 @@ private:
 	
 	//* For video
 	webrtc::VideoDecoder	*h264_decoder_;
+	// 缓存用于解码播放的264数据
 	rtc::CriticalSection	cs_list_h264_;
 	std::list<PlyPacket*>	lst_h264_buffer_;
+
+	// used for render
 	rtc::VideoSinkInterface<cricket::VideoFrame>	*video_render_;
 
 	//* For audio

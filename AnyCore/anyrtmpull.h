@@ -1,4 +1,4 @@
-/*
+﻿/*
 *  Copyright (c) 2016 The AnyRTC project authors. All Rights Reserved.
 *
 *  Please visit https://www.anyrtc.io for detail.
@@ -18,6 +18,7 @@
 */
 #ifndef __ANY_RTMP_PULL_H__
 #define __ANY_RTMP_PULL_H__
+#include <string>
 #include "webrtc/base/thread.h"
 #include "srs_librtmp/srs_kernel_codec.h"
 
@@ -29,28 +30,6 @@ enum RTMPLAYER_STATUS
 	RS_PLY_Played,
 	RS_PLY_Closed
 };
-
-typedef struct DemuxData
-{
-	DemuxData(int size) : _data(NULL), _data_len(0), _data_size(size){
-		_data = new char[_data_size];
-	}
-	virtual ~DemuxData(void){ delete[] _data; }
-	void reset() {
-		_data_len = 0;
-	}
-	int append(const char* pData, int len){
-		if (_data_len + len > _data_size)
-			return 0;
-		memcpy(_data + _data_len, pData, len);
-		_data_len += len;
-		return len;
-	}
-
-	char*_data;
-	int _data_len;
-	int _data_size;
-}DemuxData;
 
 class AnyRtmpPullCallback
 {
@@ -64,7 +43,11 @@ public:
 	virtual void OnRtmpullH264Data(const uint8_t*pdata, int len, uint32_t ts) = 0;
 	virtual void OnRtmpullAACData(const uint8_t*pdata, int len, uint32_t ts) = 0;
 };
-
+/*
+负责Rtmp.
+连接管理（建立，重连等）
+包解析，并最终形成aac(带adts头部)和h264（sps和pps）数据
+*/
 class AnyRtmpPull : public rtc::Thread
 {
 public:
@@ -78,8 +61,8 @@ protected:
 	void DoReadData();
 	int GotVideoSample(u_int32_t timestamp, SrsCodecSample *sample);
 	int GotAudioSample(u_int32_t timestamp, SrsCodecSample *sample);
-    
-    void RescanVideoframe(const char*pdata, int len, uint32_t timestamp);
+	
+	void RescanVideoframe(const char*pdata, int len, uint32_t timestamp);
 
 	void CallConnect();
 	void CallDisconnect();
@@ -88,14 +71,14 @@ private:
 	AnyRtmpPullCallback&	callback_;
 	SrsAvcAacCodec*		srs_codec_;
 	bool				running_;
-    bool                connected_;
+	bool				connected_;
 	int					retry_ct_;
-	std::string			str_url_;
-    
-    rtc::CriticalSection	cs_rtmp_;
+	std::string	str_url_;
+	
+	rtc::CriticalSection	cs_rtmp_;
 	RTMPLAYER_STATUS	rtmp_status_;
 	void*				rtmp_;
-	DemuxData*			audio_payload_;
-	DemuxData*			video_payload_;
+	std::string audio_payload_;
+	std::string video_payload_;
 };
 #endif	// __ANY_RTMP_PULL_H__

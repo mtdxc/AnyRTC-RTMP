@@ -35,20 +35,20 @@
 #include "pluginaac.h"
 
 namespace webrtc {
-
+// 数据编码回调
 class AVCodecCallback
 {
 public:
 	AVCodecCallback(void){};
 	virtual ~AVCodecCallback(void){};
-
+	// H264 aac 编码数据回调
 	virtual void OnEncodeDataCallback(bool audio, uint8_t *p, uint32_t length, uint32_t ts) = 0;
 };
 
-class A_AACEncoder : public webrtc::AudioSinkInterface
+class A_AACEncoder : public webrtc::AudioSinkInterface // audio source
 {
 public:
-	A_AACEncoder(AVCodecCallback&callback);
+	A_AACEncoder(AVCodecCallback& callback);
 	virtual ~A_AACEncoder(void);
 
 	bool Init(int num_channels, int sample_rate, int pcm_bit_size);
@@ -68,29 +68,32 @@ private:
 	AVCodecCallback& callback_;
 	bool        running_;
 	bool        muted_;
-    bool        encoded_;
+	bool        encoded_;
 
 	aac_enc_t	encoder_;
 
 	webrtc::acm2::ACMResampler resampler_record_;
 	int						audio_record_sample_hz_;
 	int						audio_record_channels_;
-
+	// unused now
 	rtc::CriticalSection buffer_critsect_;
 	std::list<void*>	audio_buffer_;
+	void clear_audio_buffer();
 };
 
-class V_H264Encoder : public rtc::Thread, public rtc::VideoSinkInterface<cricket::VideoFrame> , public EncodedImageCallback
+class V_H264Encoder : public rtc::Thread, 
+	public rtc::VideoSinkInterface<cricket::VideoFrame> , // video source
+	public EncodedImageCallback // h264 callback
 {
 public:
-	V_H264Encoder(AVCodecCallback&callback);
+	V_H264Encoder(AVCodecCallback& callback);
 	virtual ~V_H264Encoder(void);
 
 	void Init(cricket::WebRtcVideoEncoderFactory* video_encoder_factory = NULL);
 	void SetParameter(int width, int height, int fps, int bitrate);
 	void SetRates(int bitrate);
-    void SetAutoAdjustBit(bool enabled);
-    void SetNetDelay(int delayMs);
+	void SetAutoAdjustBit(bool enabled);
+	void SetNetDelay(int delayMs);
 	void CreateVideoEncoder();
 	void StartEncoder();
 	void StopEncoder();
@@ -109,14 +112,15 @@ public:
 private:
 	bool		running_;
 	bool		need_keyframe_;
-    bool        encoded_;
-    int         video_bitrate_;
-    int         delay_ms_;
-    int         adjust_v_bitrate_;
+	bool		encoded_;
+	int			video_bitrate_;
+	int			delay_ms_;
+	int			adjust_v_bitrate_;
 	AVCodecCallback& callback_;
 	VideoCodec		h264_;
 	cricket::WebRtcVideoEncoderFactory*	video_encoder_factory_;
 	VideoEncoder*	encoder_;
+	
 	rtc::CriticalSection buffer_critsect_;
 	rtc::scoped_ptr<VideoRenderFrames> render_buffers_
       GUARDED_BY(buffer_critsect_);

@@ -27,10 +27,11 @@
 #include "video_renderer.h"
 #include "webrtc/media/base/videocapturer.h"
 
-class RtmpHosterImpl : public RTMPHoster, public AnyRtmpstreamerEvent, rtc::MessageHandler, public webrtc::AVAudioRecordCallback
+class RtmpHosterImpl : public RTMPHoster, 
+	public AnyRtmpstreamerEvent, rtc::MessageHandler, public webrtc::AVAudioRecordCallback
 {
 public:
-	RtmpHosterImpl(RTMPHosterEvent&callback);
+	RtmpHosterImpl(RTMPHosterEvent& callback);
 	virtual ~RtmpHosterImpl();
 
 

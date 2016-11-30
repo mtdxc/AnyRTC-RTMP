@@ -34,6 +34,10 @@ class VideoRenderer : public rtc::VideoSinkInterface<cricket::VideoFrame> {
  protected:
   VideoRenderer() {}
 };
+  
+class NullRenderer : public VideoRenderer {
+  void OnFrame(const cricket::VideoFrame& video_frame) override {}
+};
 }  // namespace webrtc
 
 #endif  // WEBRTC_TEST_VIDEO_RENDERER_H_

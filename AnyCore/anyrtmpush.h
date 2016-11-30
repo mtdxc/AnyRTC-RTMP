@@ -37,11 +37,10 @@ enum ENC_DATA_TYPE{
 
 typedef struct EncData
 {
-	EncData(void) :_data(NULL), _dataLen(0),
-		_bVideo(false), _dts(0) {}
-	uint8_t*_data;
+	EncData(void) :_data(NULL), _dataLen(0), _dts(0) {}
+	~EncData();
+	uint8_t* _data;
 	int _dataLen;
-	bool _bVideo;
 	uint32_t _dts;
 	ENC_DATA_TYPE _type;
 }EncData;
@@ -61,7 +60,7 @@ public:
 class AnyRtmpPush :public rtc::Thread
 {
 public:
-	AnyRtmpPush(AnyRtmpushCallback&callback, const std::string&url);
+	AnyRtmpPush(AnyRtmpushCallback& callback, const std::string& url);
 	virtual ~AnyRtmpPush(void);
 
 	void Close();
@@ -74,6 +73,7 @@ public:
 	void SetAacData(uint8_t* pdata, int len, uint32_t ts);
 	void GotH264Nal(uint8_t* pdata, int len, uint32_t ts);
 
+	uint32_t getSendDelay();
 protected:
 	//* For Thread
 	virtual void Run();
@@ -82,8 +82,8 @@ protected:
 	void CallDisconnect();
 	void CallStatusEvent(int delayMs, int netBand);
 	void DoSendData();
-    void setMetaData();
-    void setMetaData(uint8_t* pData, int nLen, uint32_t ts);
+	void setMetaData();
+	void setMetaData(uint8_t* pData, int nLen, uint32_t ts);
 
 private:
 	AnyRtmpushCallback&	callback_;
@@ -97,7 +97,8 @@ private:
 
 	rtc::CriticalSection	cs_list_enc_;
 	std::list<EncData*>		lst_enc_data_;
-
+	void clearSendList();
+	EncData* popData();
 private:
 	//* For RTMP
 	// 0 = Linear PCM, platform endian

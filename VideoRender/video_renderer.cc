@@ -7,17 +7,13 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
-#include "video_renderer.h"
+#include "../AnyCore/video_renderer.h"
 
 // TODO(pbos): Android renderer
 
 #include "webrtc/typedefs.h"
 
 namespace webrtc {
-
-class NullRenderer : public VideoRenderer {
-	void OnFrame(const cricket::VideoFrame& video_frame) override {}
-};
 
 VideoRenderer* VideoRenderer::Create(const void* hwnd,
                                      size_t width,

@@ -38,7 +38,7 @@ void RTMPHoster::Destory(RTMPHoster*hoster)
 	hoster = NULL;
 }
 
-RtmpHosterImpl::RtmpHosterImpl(RTMPHosterEvent&callback)
+RtmpHosterImpl::RtmpHosterImpl(RTMPHosterEvent& callback)
 	: callback_(callback)
 	, worker_thread_(&webrtc::AnyRtmpCore::Inst())
 	, av_rtmp_started_(false)
@@ -77,6 +77,7 @@ void RtmpHosterImpl::SetVideoEnable(bool enabled)
 {
 	// Not surpport?
 }
+
 void RtmpHosterImpl::SetVideoRender(void* render)
 {
 	if (video_render_ != NULL) {
@@ -87,6 +88,7 @@ void RtmpHosterImpl::SetVideoRender(void* render)
 		video_render_ = webrtc::VideoRenderer::Create(render, req_w_, req_h_);
 	}
 }
+
 void RtmpHosterImpl::SetVideoCapturer(void* handle)
 {
 	void* capturer = NULL;
@@ -110,8 +112,9 @@ void RtmpHosterImpl::SetVideoCapturer(void* handle)
 				}
 			}
 		}
-		cricket::WebRtcVideoDeviceCapturerFactory factory;
 
+		// only use first one
+		cricket::WebRtcVideoDeviceCapturerFactory factory;
 		for (const auto& name : device_names) {
 			capturer = factory.Create(cricket::Device(name, 0));
 			if (capturer) {
@@ -137,10 +140,6 @@ void RtmpHosterImpl::SetVideoMode(RTMPVideoMode videoMode)
 	v_width_ = 640;
 	v_height_ = 360;
 	int bitrate = 512;
-#if defined(WEBRTC_ANDROID) || defined(WEBRTC_IOS)
-		v_width_ = 360;
-		v_height_ = 640;
-#endif
 	switch (videoMode) {
 	case RTMP_Video_720P:
 	{
@@ -148,10 +147,6 @@ void RtmpHosterImpl::SetVideoMode(RTMPVideoMode videoMode)
 		req_h_ = 720;
 		v_width_ = 1280;
 		v_height_ = 720;
-#if defined(WEBRTC_ANDROID) || defined(WEBRTC_IOS)
-			v_width_ = 720;
-			v_height_ = 1280;
-#endif
 		bitrate = 1280;
 	}
 	break;
@@ -161,10 +156,6 @@ void RtmpHosterImpl::SetVideoMode(RTMPVideoMode videoMode)
 		req_h_ = 720;
 		v_width_ = 960;
 		v_height_ = 540;
-#if defined(WEBRTC_ANDROID) || defined(WEBRTC_IOS)
-			v_width_ = 540;
-			v_height_ = 960;
-#endif
 		bitrate = 1024;
 	}
 	break;
@@ -186,11 +177,14 @@ void RtmpHosterImpl::SetVideoMode(RTMPVideoMode videoMode)
 	default:
 		break;
 	}
+#if defined(WEBRTC_ANDROID) || defined(WEBRTC_IOS)
+	std::swap(v_width_, v_height_);
+#endif	
 	av_rtmp_streamer_->SetVideoParameter(v_width_, v_height_, bitrate);
 }
 
 //* Rtmp function for push rtmp stream 
-void RtmpHosterImpl::StartRtmpStream(const char*url)
+void RtmpHosterImpl::StartRtmpStream(const char* url)
 {
 	if (!av_rtmp_started_) {
 		av_rtmp_started_ = true;
@@ -231,18 +225,14 @@ void RtmpHosterImpl::AddVideoCapturer_w(void* handle)
 			cricket::VideoFormat highest_asked_format;
 			highest_asked_format.Construct(req_w_, req_h_, cricket::VideoFormat::FpsToInterval(30), cricket::FourCC::FOURCC_NV12);
 			cricket::VideoFormat capture_format;
-			if (!video_capturer_->GetBestCaptureFormat(highest_asked_format,
-				&capture_format)) {
+			if (!video_capturer_->GetBestCaptureFormat(highest_asked_format, &capture_format)) {
 				LOG(LS_WARNING) << "Unsupported format:"
 					<< " width=" << highest_asked_format.width
 					<< " height=" << highest_asked_format.height
 					<< ". Supported formats are:";
-				const std::vector<cricket::VideoFormat>* formats =
-					video_capturer_->GetSupportedFormats();
+				const std::vector<cricket::VideoFormat>* formats = video_capturer_->GetSupportedFormats();
 				ASSERT(formats != NULL);
-				for (std::vector<cricket::VideoFormat>::const_iterator i = formats->begin();
-					i != formats->end(); ++i) {
-					const cricket::VideoFormat& format = *i;
+				for (auto format : *formats) {
 					LOG(LS_WARNING) << "  " << cricket::GetFourccName(format.fourcc)
 						<< ":" << format.width << "x" << format.height << "x"
 						<< format.framerate();

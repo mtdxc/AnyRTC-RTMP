@@ -38,11 +38,13 @@
     }
    
 }
+
 - (void)dealloc
 {
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIDeviceProximityStateDidChangeNotification object:nil];
      AudioSessionRemovePropertyListenerWithUserData(kAudioSessionProperty_AudioRouteChange,audioRouteChangeCallback,(__bridge void *)(self));
 }
+
 - (id)init
 {
     self = [super init];
@@ -64,11 +66,11 @@
         //添加耳机拔掉侦听事件
         AudioSessionInitialize(NULL, NULL, NULL, NULL);
         AudioSessionAddPropertyListener(kAudioSessionProperty_AudioRouteChange,         audioRouteChangeCallback, (__bridge void *)(self));
-        
-        
+      
     }
     return self;
 }
+
 - (void)setSpeakerOn
 {
     if ((UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)) {
@@ -81,8 +83,8 @@
        [[AVAudioSession sharedInstance] overrideOutputAudioPort:AVAudioSessionPortOverrideSpeaker error:nil];
         isSpeaker = YES;
     }
-   
 }
+
 - (void)setSpeakerOff
 {
     if ((UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)) {

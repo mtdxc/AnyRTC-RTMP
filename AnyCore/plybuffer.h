@@ -1,4 +1,4 @@
-/*
+﻿/*
 *  Copyright (c) 2016 The AnyRTC project authors. All Rights Reserved.
 *
 *  Please visit https://www.anyrtc.io for detail.
@@ -38,7 +38,7 @@ typedef struct PlyPacket
 		if (len > 0 && pdata != NULL) {
 			if (_data)
 				delete[] _data;
-			if (_b_video)
+			if (_b_video) // h264 padding
 				_data = new uint8_t[len + 8];
 			else
 				_data = new uint8_t[len];
@@ -65,20 +65,23 @@ public:
 
 	virtual void OnPlay() = 0;
 	virtual void OnPause() = 0;
+	// Pop出一H264帧H264用于解码
 	virtual bool OnNeedDecodeData(PlyPacket* pkt) = 0;
 };
 
 class PlyBuffer : public rtc::MessageHandler
 {
 public:
-	PlyBuffer(PlyBufferCallback&callback, rtc::Thread*worker);
+	PlyBuffer(PlyBufferCallback& callback, rtc::Thread* worker);
 	virtual ~PlyBuffer();
 
 	void SetCacheSize(int miliseconds/*ms*/);
 	int GetPlayAudio(void* audioSamples);
-    PlyStuts PlayerStatus(){return ply_status_;};
-    int GetPlayCacheTime(){return buf_cache_time_;};
+	PlyStuts PlayerStatus(){return ply_status_;};
+	int GetPlayCacheTime(){return buf_cache_time_;};
+
 	void CacheH264Data(const uint8_t*pdata, int len, uint32_t ts);
+	// 10ms pcm data
 	void CachePcmData(const uint8_t*pdata, int len, uint32_t ts);
 
 protected:
@@ -93,12 +96,13 @@ private:
 	bool					got_audio_;
 	int						cache_time_;
 	int						cache_delta_;
-    int                     buf_cache_time_;
+	int						buf_cache_time_;
 	PlyStuts				ply_status_;
 	rtc::Thread				*worker_thread_;
-	uint32_t				sys_fast_video_time_;	// �뿪ʱ����
-	uint32_t				rtmp_fast_video_time_;
-	uint32_t				rtmp_cache_time_;
+	uint32_t				sys_fast_video_time_; // 秒开时间轴(系统时间戳)
+	uint32_t				rtmp_fast_video_time_;// rtmp时间戳
+	uint32_t				rtmp_cache_time_; // 下次cache ok的系统时间戳
+	// 当前播放时间戳(rtmp时间戳)
 	uint32_t				play_cur_time_;
 	rtc::CriticalSection	cs_list_audio_;
 	std::list<PlyPacket*>	lst_audio_buffer_;

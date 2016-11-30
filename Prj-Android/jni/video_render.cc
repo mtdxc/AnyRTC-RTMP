@@ -24,10 +24,6 @@
 #include "webrtc/media/engine/webrtcvideoframe.h"
 
 namespace webrtc {
-
-class NullRenderer : public VideoRenderer {
-	void OnFrame(const cricket::VideoFrame& video_frame) override {}
-};
     
 class AndroidRender : public VideoRenderer {
 public:

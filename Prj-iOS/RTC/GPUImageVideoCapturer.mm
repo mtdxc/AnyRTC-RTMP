@@ -32,8 +32,8 @@ static cricket::VideoFormat const kDefaultFormat_QHD = cricket::VideoFormat(1280
                                                                             cricket::VideoFormat::FpsToInterval(30),
                                                                             cricket::FOURCC_NV12);
 static cricket::VideoFormat const kDefaultFormat_VGA = cricket::VideoFormat(640, 480,
-                     cricket::VideoFormat::FpsToInterval(30),
-                     cricket::FOURCC_NV12);
+                                                                            cricket::VideoFormat::FpsToInterval(30),
+                                                                            cricket::FOURCC_NV12);
 static cricket::VideoFormat const kDefaultFormat_QVGA = cricket::VideoFormat(320, 240,
                                                                             cricket::VideoFormat::FpsToInterval(30),
                                                                             cricket::FOURCC_NV12);
@@ -74,8 +74,7 @@ namespace webrtc {
         _capturer = nil;
     }
     
-    cricket::CaptureState GPUImageVideoCapturer::Start(
-                                                           const cricket::VideoFormat& format) {
+    cricket::CaptureState GPUImageVideoCapturer::Start(const cricket::VideoFormat& format) {
        if (!_capturer) {
             LOG(LS_ERROR) << "Failed to create AVFoundation capturer.";
             return cricket::CaptureState::CS_FAILED;

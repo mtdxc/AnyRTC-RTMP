@@ -31,21 +31,23 @@
 
 namespace webrtc {
 
-class AnyRtmpStreamerImpl : public AnyRtmpstreamer, public AVCodecCallback, public AnyRtmpushCallback
+class AnyRtmpStreamerImpl : public AnyRtmpstreamer, 
+	public AVCodecCallback, public AnyRtmpushCallback
 {
 public:
-	AnyRtmpStreamerImpl(AnyRtmpstreamerEvent&callback);
+	AnyRtmpStreamerImpl(AnyRtmpstreamerEvent& callback);
 	virtual ~AnyRtmpStreamerImpl(void);
 
 	webrtc::AudioSinkInterface* GetAudioSink(){ return a_aac_encoder_; };
 	rtc::VideoSinkInterface<cricket::VideoFrame>* GetVideoSink() {return v_h264_encoder_;};
 	virtual void SetAudioEnable(bool enabled);
 	virtual void SetVideoEnable(bool enabled);
-    virtual void SetAutoAdjustBit(bool enabled);
+	// 根据发送缓冲区ms调整视频码率
+	virtual void SetAutoAdjustBit(bool enabled);
 	virtual void SetVideoParameter(int w, int h, int bitrate);
 	virtual void SetBitrate(int bitrate);
 
-	void StartStream(const std::string&url);
+	void StartStream(const std::string& url);
 	void StopStream();
 
 public:
@@ -66,8 +68,8 @@ protected:
 
 private:
 	bool					rtmp_connected_;
-    bool                    auto_adjust_bit_;
-	AnyRtmpstreamerEvent		&callback_;
+	bool					auto_adjust_bit_;
+	AnyRtmpstreamerEvent	&callback_;
 
 	// Audio
 	A_AACEncoder*			a_aac_encoder_;
@@ -82,7 +84,7 @@ private:
 	int						v_framerate_;
 	int						v_bitrate_;
 
-    rtc::CriticalSection	cs_av_rtmp_;
+	rtc::CriticalSection	cs_av_rtmp_;
 	AnyRtmpPush*				av_rtmp_;
 };
 

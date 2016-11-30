@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include "video_renderer.h"
 #include "webrtc/base/scoped_ref_ptr.h"
@@ -8,7 +8,7 @@
 namespace webrtc {
 namespace test {
 //---------------------------------------------------------------------------------------
-// TCPÁ÷Àà¶¨Òå
+// TCPæµç±»å®šä¹‰
 class  D3DVideoRenderer : public VideoRenderer
 {
 public:
@@ -16,9 +16,9 @@ public:
 	virtual ~D3DVideoRenderer(void);
 
 	virtual int Create(const void* hParentWnd/*HWND*/, int nWidth, int nHeight, int nFrameRate);
-	//¹Ø±Õ
+	//å…³é—­
 	virtual void Destroy(void);
-	//±àÂë&ÏÔÊ¾
+	//ç¼–ç &æ˜¾ç¤º
 	virtual int	Render(unsigned char*pData, int nLen);
 
 	void OnFrame(const cricket::VideoFrame& frame) override;

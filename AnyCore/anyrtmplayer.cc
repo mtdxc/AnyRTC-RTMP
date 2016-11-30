@@ -1,4 +1,4 @@
-/*
+﻿/*
 *  Copyright (c) 2016 The AnyRTC project authors. All Rights Reserved.
 *
 *  Please visit https://www.anyrtc.io for detail.
@@ -26,19 +26,21 @@
 
 #define PLY_START	1001
 #define PLY_STOP	1002
-#define PLY_TICK    1003
+// 状态反馈回调
+#define PLY_TICK  1003
 
 AnyRtmplayer* AnyRtmplayer::Create(AnyRtmplayerEvent&callback)
 {
 	return new webrtc::AnyRtmplayerImpl(callback);
 }
+
 namespace webrtc {
 
 AnyRtmplayerImpl::AnyRtmplayerImpl(AnyRtmplayerEvent&callback)
 	: AnyRtmplayer(callback)
 	, rtmp_pull_(NULL)
 	, ply_decoder_(NULL)
-    , cur_bitrate_(0)
+	, cur_bitrate_(0)
 	, video_renderer_(NULL)
 {
 	rtc::Thread::Start();
@@ -65,8 +67,7 @@ void AnyRtmplayerImpl::StartPlay(const char* url)
 {
 	str_url_ = url;
 	rtc::Thread::Post(RTC_FROM_HERE, this, PLY_START);
-
-    rtc::Thread::PostDelayed(RTC_FROM_HERE, 1000, this, PLY_TICK);
+	rtc::Thread::PostDelayed(RTC_FROM_HERE, 1000, this, PLY_TICK);
 }
 
 void AnyRtmplayerImpl::SetVideoRender(void* handle)
@@ -76,15 +77,15 @@ void AnyRtmplayerImpl::SetVideoRender(void* handle)
 
 void AnyRtmplayerImpl::StopPlay()
 {
-    rtc::Thread::Clear(this, PLY_TICK);
+	rtc::Thread::Clear(this, PLY_TICK);
 	rtc::Thread::Post(RTC_FROM_HERE, this, PLY_STOP);
-    callback_.OnRtmplayerClose(0);
+	callback_.OnRtmplayerClose(0);
 }
 
 void AnyRtmplayerImpl::OnMessage(rtc::Message* msg)
 {
 	switch (msg->message_id) {
-	case PLY_START: {
+	case PLY_START:
 		if (ply_decoder_ == NULL) {
 			ply_decoder_ = new PlyDecoder();
 			if (video_renderer_)
@@ -93,10 +94,8 @@ void AnyRtmplayerImpl::OnMessage(rtc::Message* msg)
 		if (rtmp_pull_ == NULL) {
 			rtmp_pull_ = new AnyRtmpPull(*this, str_url_);
 		}
-		
-	}
 		break;
-	case PLY_STOP: {
+	case PLY_STOP:
 		if (rtmp_pull_) {
 			delete rtmp_pull_;
 			rtmp_pull_ = NULL;
@@ -105,20 +104,18 @@ void AnyRtmplayerImpl::OnMessage(rtc::Message* msg)
 			delete ply_decoder_;
 			ply_decoder_ = NULL;
 		}
-	}
 		break;
-    case PLY_TICK: {
-        if (ply_decoder_) {
-            if (ply_decoder_->IsPlaying()) {
-                callback_.OnRtmplayerStatus(ply_decoder_->CacheTime(), cur_bitrate_);
-                cur_bitrate_ = 0;
-            } else {
-                callback_.OnRtmplayerCache(ply_decoder_->CacheTime());
-            }
-        }
-        rtc::Thread::PostDelayed(RTC_FROM_HERE, 1000, this, PLY_TICK);
-    }
-        break;
+	case PLY_TICK:
+		if (ply_decoder_) {
+			if (ply_decoder_->IsPlaying()) {
+					callback_.OnRtmplayerStatus(ply_decoder_->CacheTime(), cur_bitrate_);
+					cur_bitrate_ = 0;
+			} else {
+					callback_.OnRtmplayerCache(ply_decoder_->CacheTime());
+			}
+		}
+		rtc::Thread::PostDelayed(RTC_FROM_HERE, 1000, this, PLY_TICK);
+		break;
 	}
 }
 
@@ -144,7 +141,7 @@ void AnyRtmplayerImpl::OnRtmpullH264Data(const uint8_t*pdata, int len, uint32_t 
 	if (ply_decoder_) {
 		ply_decoder_->AddH264Data(pdata, len, ts);
 	}
-    cur_bitrate_ += len;
+	cur_bitrate_ += len;
 }
 
 void AnyRtmplayerImpl::OnRtmpullAACData(const uint8_t*pdata, int len, uint32_t ts)
@@ -152,7 +149,7 @@ void AnyRtmplayerImpl::OnRtmpullAACData(const uint8_t*pdata, int len, uint32_t t
 	if (ply_decoder_) {
 		ply_decoder_->AddAACData(pdata, len, ts);
 	}
-    cur_bitrate_ += len;
+	cur_bitrate_ += len;
 }
 
 int AnyRtmplayerImpl::GetNeedPlayAudio(void* audioSamples, uint32_t& samplesPerSec, size_t& nChannels)

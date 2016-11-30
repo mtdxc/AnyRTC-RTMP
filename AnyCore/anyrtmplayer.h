@@ -25,7 +25,8 @@
 #include "webrtc/api/mediastreaminterface.h"
 
 namespace webrtc {
-class AnyRtmplayerImpl : public AnyRtmplayer, public rtc::Thread, public rtc::MessageHandler
+class AnyRtmplayerImpl : public AnyRtmplayer
+		, public rtc::Thread, public rtc::MessageHandler
 		, public AnyRtmpPullCallback
 {
 public:
@@ -52,7 +53,7 @@ protected:
 private:
 	AnyRtmpPull			*rtmp_pull_;
 	PlyDecoder			*ply_decoder_;
-    int                 cur_bitrate_;
+	int					cur_bitrate_;
 	std::string			str_url_;
 
 	rtc::VideoSinkInterface < cricket::VideoFrame > *video_renderer_;

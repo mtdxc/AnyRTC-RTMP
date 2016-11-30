@@ -1,4 +1,4 @@
-
+ï»¿
 #include "VideoRenderer.h"
 #include "mfx_samples_config.h"
 #include "d3d_renderer.h"
@@ -22,7 +22,7 @@ namespace test {
 	}
 #endif
 //---------------------------------------------------------------------------------------
-//¹¹Ôìº¯Êı
+//æ„é€ å‡½æ•°
 D3DVideoRenderer::D3DVideoRenderer(void)
 	: m_pEncodingPipeline(NULL)
 	, m_hParentWnd(NULL)
@@ -32,7 +32,7 @@ D3DVideoRenderer::D3DVideoRenderer(void)
 }
 
 //---------------------------------------------------------------------------------------
-//Îö¹¹º¯Êı
+//ææ„å‡½æ•°
 D3DVideoRenderer::~D3DVideoRenderer(void)
 {
 	Destroy();
@@ -56,7 +56,7 @@ int D3DVideoRenderer::Create(const void* hParentWnd/*HWND*/, int nWidth, int nHe
 	return 0;
 }
 
-//¹Ø±Õ
+//å…³é—­
 void D3DVideoRenderer::Destroy(void)
 {
 	CRendererPipeline* pEncodingPipeline = m_pEncodingPipeline;
@@ -69,7 +69,7 @@ void D3DVideoRenderer::Destroy(void)
 	}
 }
 
-//±àÂë&ÏÔÊ¾
+//ç¼–ç &æ˜¾ç¤º
 int	D3DVideoRenderer::Render(unsigned char*pData, int nLen)
 {
 	if (m_pEncodingPipeline)

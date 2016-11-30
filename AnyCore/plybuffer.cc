@@ -27,13 +27,13 @@
 
 #define PB_TICK	1011
 
-PlyBuffer::PlyBuffer(PlyBufferCallback&callback, rtc::Thread*worker)
+PlyBuffer::PlyBuffer(PlyBufferCallback& callback, rtc::Thread* worker)
 	: callback_(callback)
 	, worker_thread_(NULL)
 	, got_audio_(false)
 	, cache_time_(1000)	// default 1000ms(1s)
 	, cache_delta_(1)
-    , buf_cache_time_(0)
+	, buf_cache_time_(0)
 	, ply_status_(PS_Fast)
 	, sys_fast_video_time_(0)
 	, rtmp_fast_video_time_(0)
@@ -75,6 +75,7 @@ int PlyBuffer::GetPlayAudio(void* audioSamples)
 	if (lst_audio_buffer_.size() > 0) {
 		PlyPacket* pkt_front = lst_audio_buffer_.front();
 		ret = pkt_front->_data_len;
+		// update play timestamp
 		play_cur_time_ = pkt_front->_dts;
 		memcpy(audioSamples, pkt_front->_data, pkt_front->_data_len);
 		lst_audio_buffer_.pop_front();
@@ -83,7 +84,7 @@ int PlyBuffer::GetPlayAudio(void* audioSamples)
 
 	return ret;
 }
-void PlyBuffer::CacheH264Data(const uint8_t*pdata, int len, uint32_t ts)
+void PlyBuffer::CacheH264Data(const uint8_t* pdata, int len, uint32_t ts)
 {
 	PlyPacket* pkt = new PlyPacket(true);
 	pkt->SetData(pdata, len, ts);
@@ -133,9 +134,10 @@ void PlyBuffer::DoDecode()
 		return;
 	if (ply_status_ == PS_Fast) {
 		PlyPacket* pkt = NULL;
+		
 		uint32_t videoSysGap = curTime - sys_fast_video_time_;
 		uint32_t videoPlyTime = rtmp_fast_video_time_ + videoSysGap;
-		if (videoSysGap >= PLY_RED_TIME) {
+		if (videoSysGap >= PLY_RED_TIME) { // 快速启动，延迟>250ms，音频缓存够250ms，或没音频有视频且延迟超过1s
 			//* Start play a/v
 			rtc::CritScope cs(&cs_list_audio_);
 			if (lst_audio_buffer_.size() > 0) {
@@ -171,7 +173,7 @@ void PlyBuffer::DoDecode()
 				media_buf_time = lst_audio_buffer_.back()->_dts - lst_audio_buffer_.front()->_dts;
 			}
 		}
-		if (media_buf_time == 0 && !got_audio_) {
+		if (media_buf_time == 0 && !got_audio_) {//没音频，采用视频delta延迟
 			rtc::CritScope cs(&cs_list_video_);
 			if (lst_video_buffer_.size() > 0) {
 				media_buf_time = lst_video_buffer_.back()->_dts - lst_video_buffer_.front()->_dts;
@@ -203,17 +205,19 @@ void PlyBuffer::DoDecode()
 			// Play buffer is so small, then we need buffer it?
 			callback_.OnPause();
 			ply_status_ = PS_Cache;
-            cache_time_ = cache_delta_ * 1000;
-            if(cache_delta_ < PLY_MAX_CACHE)
-                cache_delta_ *= 2;
+			// double cache time in too less max 16s
+			cache_time_ = cache_delta_ * 1000;
+			if(cache_delta_ < PLY_MAX_CACHE)
+				cache_delta_ *= 2;
+			// 更新这次缓存的时间
 			rtmp_cache_time_ = rtc::Time() + cache_time_;
 		}
-        buf_cache_time_ = media_buf_time;
+		buf_cache_time_ = media_buf_time;
 	}
 	else if (ply_status_ == PS_Cache) {
 		if (rtmp_cache_time_ <= rtc::Time()) {
 			uint32_t media_buf_time = 0;
-			{
+			{//有音频就用音频时间戳，否则用视频[有问题吧,音频是不断的消费的,哪来那么长的缓冲区]
 				rtc::CritScope cs(&cs_list_audio_);
 				if (lst_audio_buffer_.size() > 0) {
 					media_buf_time = lst_audio_buffer_.back()->_dts - lst_audio_buffer_.front()->_dts;
@@ -227,15 +231,18 @@ void PlyBuffer::DoDecode()
 			}
 
 			if (media_buf_time >= cache_time_ - PLY_RED_TIME) {
+				// 直到缓存已满
 				ply_status_ = PS_Normal;
 				if (cache_delta_ == PLY_MAX_CACHE)
 					cache_delta_ /= 2;
 				callback_.OnPlay();
 			}
 			else {
+				// 无限制延长cache_time
 				rtmp_cache_time_ = rtc::Time() + cache_time_;
 			}
 			if (!got_audio_) {
+				// 校准视频延迟...
 				sys_fast_video_time_ += cache_time_;
 			}
 			buf_cache_time_ = media_buf_time;

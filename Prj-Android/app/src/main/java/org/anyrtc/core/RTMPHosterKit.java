@@ -46,7 +46,6 @@ public class RTMPHosterKit {
      * 构造访问jni底层库的对象
      */
     private long fNativeAppId;
-    private Activity   mActivity;
     private RTMPHosterHelper mHosterHelper;
     private final LooperExecutor mExecutor;
     private final EglBase mEglBase;
@@ -57,9 +56,8 @@ public class RTMPHosterKit {
 
     public RTMPHosterKit(Activity act, final RTMPHosterHelper hosterHelper) {
         RTMPUtils.assertIsTrue(act != null && hosterHelper != null);
-        mActivity = act;
         mHosterHelper = hosterHelper;
-        AnyRTMP.Inst().Init(mActivity.getApplicationContext());
+        AnyRTMP.Inst().Init(act.getApplicationContext());
 
         mExecutor = AnyRTMP.Inst().Executor();
         mEglBase = AnyRTMP.Inst().Egl();

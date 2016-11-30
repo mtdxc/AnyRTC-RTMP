@@ -1947,8 +1947,8 @@
 				TargetAttributes = {
 					B56B37861D8BF6F30011F813 = {
 						CreatedOnToolsVersion = 7.3.1;
-						DevelopmentTeam = 3YB54BC6QT;
-						ProvisioningStyle = Manual;
+						DevelopmentTeam = T279675R86;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -2462,7 +2462,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = 3YB54BC6QT;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				DEVELOPMENT_TEAM = T279675R86;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					WEBRTC_POSIX,
@@ -2500,8 +2501,8 @@
 				LIBRARY_SEARCH_PATHS = ../webrtc/modules/video_coding/codecs/h264/lib_ios;
 				PRODUCT_BUNDLE_IDENTIFIER = org.anyrtc.anyrtmp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE = "d9371124-ec23-4acb-92e6-e23872280f69";
-				PROVISIONING_PROFILE_SPECIFIER = ZJQ_DEV;
+				PROVISIONING_PROFILE = "";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 			};
 			name = Debug;
 		};
@@ -2509,7 +2510,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				DEVELOPMENT_TEAM = T279675R86;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					WEBRTC_POSIX,

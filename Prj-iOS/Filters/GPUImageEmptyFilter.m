@@ -36,6 +36,7 @@ NSString *const kGPUImageInvertFragmentShaderString = SHADER_STRING
  }
  );
 #endif
+
 @implementation GPUImageEmptyFilter
 - (id)init;
 {

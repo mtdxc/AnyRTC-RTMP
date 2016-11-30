@@ -23,7 +23,8 @@
 #include "anyrtmplayer.h"
 #include "video_renderer.h"
 
-class RtmpGuesterImpl : public RTMPGuester, public AnyRtmplayerEvent, public webrtc::AVAudioTrackCallback
+class RtmpGuesterImpl : public RTMPGuester, 
+	public AnyRtmplayerEvent, public webrtc::AVAudioTrackCallback
 {
 public:
 	RtmpGuesterImpl(RTMPGuesterEvent&callback);

@@ -35,7 +35,7 @@ public:
         RTMPGuester::Destory(guest_);
     };
     
-    RTMPGuester&Guest() {return *guest_;};
+    RTMPGuester& Guest() {return *guest_;};
     void SetUIAvalible(BOOL avalible) {ui_avalible_ = avalible;};
     
 public:

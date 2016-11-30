@@ -39,7 +39,7 @@ public:
         audioManager = nil;
     };
     
-    RTMPHoster&Hoster() {return *hoster_;};
+    RTMPHoster& Hoster() {return *hoster_;};
     void SetUIAvalible(BOOL avalible) {ui_avalible_ = avalible;};
     
 public:
@@ -94,7 +94,6 @@ public:
     webrtc::GPUImageVideoCapturer* beauty_capturer_;
     RTMPHosterIOS* RTMP_hoster_;
     bool    use_front_cam_;
-    
 }
 @end
 

@@ -31,19 +31,17 @@ AnyRtmpPull::AnyRtmpPull(AnyRtmpPullCallback&callback, const std::string&url)
 	: callback_(callback)
 	, srs_codec_(NULL)
 	, running_(false)
-    , connected_(false)
+	, connected_(false)
 	, retry_ct_(0)
 	, rtmp_status_(RS_PLY_Init)
 	, rtmp_(NULL)
-	, audio_payload_(NULL)
-	, video_payload_(NULL)
 {
 	str_url_ = url;
 	rtmp_ = srs_rtmp_create(url.c_str());
 	srs_codec_ = new SrsAvcAacCodec();
 
-	audio_payload_ = new DemuxData(1024);
-	video_payload_ = new DemuxData(384 * 1024);
+	audio_payload_.reserve(1024);
+	video_payload_.reserve(384 * 1024);
 
 	running_ = true;
 	rtc::Thread::Start();
@@ -70,14 +68,6 @@ AnyRtmpPull::~AnyRtmpPull(void)
 		delete srs_codec_;
 		srs_codec_ = NULL;
 	}
-	if (audio_payload_) {
-		delete audio_payload_;
-		audio_payload_ = NULL;
-	}
-	if (video_payload_) {
-		delete video_payload_;
-		video_payload_ = NULL;
-	}
 }
 
 //* For Thread
@@ -98,9 +88,9 @@ void AnyRtmpPull::Run()
 					srs_human_trace("SRS: simple handshake ok.");
 					rtmp_status_ = RS_PLY_Handshaked;
 				}
-                else {
-                    CallDisconnect();
-                }
+				else {
+					CallDisconnect();
+				}
 			}
 				break;
 			case RS_PLY_Handshaked:
@@ -109,9 +99,9 @@ void AnyRtmpPull::Run()
 					srs_human_trace("SRS: connect vhost/app ok.");
 					rtmp_status_ = RS_PLY_Connected;
 				}
-                else {
-                    CallDisconnect();
-                }
+				else {
+					CallDisconnect();
+				}
 			}
 				break;
 			case RS_PLY_Connected:
@@ -121,9 +111,9 @@ void AnyRtmpPull::Run()
 					rtmp_status_ = RS_PLY_Played;
 					CallConnect();
 				}
-                else {
-                    CallDisconnect();
-                }
+				else {
+					CallDisconnect();
+				}
 			}
 				break;
 			case RS_PLY_Played:
@@ -213,15 +203,15 @@ int AnyRtmpPull::GotVideoSample(u_int32_t timestamp, SrsCodecSample *sample)
 	if (sample->has_idr) {
 		// fresh nalu header before sps.
 		if (srs_codec_->sequenceParameterSetLength > 0) {
-			video_payload_->append((const char*)fresh_nalu_header, 4);
+			video_payload_.append((const char*)fresh_nalu_header, 4);
 			// sps
-			video_payload_->append(srs_codec_->sequenceParameterSetNALUnit, srs_codec_->sequenceParameterSetLength);
+			video_payload_.append(srs_codec_->sequenceParameterSetNALUnit, srs_codec_->sequenceParameterSetLength);
 		}
 		// cont nalu header before pps.
 		if (srs_codec_->pictureParameterSetLength > 0) {
-			video_payload_->append((const char*)fresh_nalu_header, 4);
+			video_payload_.append((const char*)fresh_nalu_header, 4);
 			// pps
-			video_payload_->append(srs_codec_->pictureParameterSetNALUnit, srs_codec_->pictureParameterSetLength);
+			video_payload_.append(srs_codec_->pictureParameterSetNALUnit, srs_codec_->pictureParameterSetLength);
 		}
 	}
 
@@ -234,7 +224,7 @@ int AnyRtmpPull::GotVideoSample(u_int32_t timestamp, SrsCodecSample *sample)
 			ret = -1;
 			return ret;
 		}
-        
+		
 
 		// 5bits, 7.3.1 NAL unit syntax,
 		// H.264-AVC-ISO_IEC_14496-10-2012.pdf, page 83.
@@ -248,31 +238,31 @@ int AnyRtmpPull::GotVideoSample(u_int32_t timestamp, SrsCodecSample *sample)
 		case SrsAvcNaluTypeAccessUnitDelimiter:
 			continue;
 		default: {
-            if (nal_unit_type == SrsAvcNaluTypeReserved) {
-                RescanVideoframe(sample_unit->bytes, sample_unit->size, timestamp);
-                continue;
-            }
-        }
+			if (nal_unit_type == SrsAvcNaluTypeReserved) {
+				RescanVideoframe(sample_unit->bytes, sample_unit->size, timestamp);
+				continue;
+			}
+		}
 			break;
 		}
 
 		if (nal_unit_type == SrsAvcNaluTypeIDR) {
 			// insert cont nalu header before frame.
 #ifdef WEBRTC_IOS
-            video_payload_->append((const char*)fresh_nalu_header, 4);
+			video_payload_.append((const char*)fresh_nalu_header, 4);
 #else
-			video_payload_->append((const char*)cont_nalu_header, 3);
+			video_payload_.append((const char*)cont_nalu_header, 3);
 #endif
 		}
 		else {
-			video_payload_->append((const char*)fresh_nalu_header, 4);
+			video_payload_.append((const char*)fresh_nalu_header, 4);
 		}
 
 		// sample data
-		video_payload_->append(sample_unit->bytes, sample_unit->size);
+		video_payload_.append(sample_unit->bytes, sample_unit->size);
 
-		callback_.OnRtmpullH264Data((uint8_t*)video_payload_->_data, video_payload_->_data_len, timestamp);
-		video_payload_->reset();
+		callback_.OnRtmpullH264Data((uint8_t*)video_payload_.data(), video_payload_.length(), timestamp);
+		video_payload_.clear();
 	}
 
 	return ret;
@@ -336,11 +326,11 @@ int AnyRtmpPull::GotAudioSample(u_int32_t timestamp, SrsCodecSample *sample)
 		adts_header[5] |= 0x1f;
 
 		// copy to audio buffer
-		audio_payload_->append((const char*)adts_header, sizeof(adts_header));
-		audio_payload_->append(sample_unit->bytes, sample_unit->size);
+		audio_payload_.append((const char*)adts_header, sizeof(adts_header));
+		audio_payload_.append(sample_unit->bytes, sample_unit->size);
 
-		callback_.OnRtmpullAACData((uint8_t*)audio_payload_->_data, audio_payload_->_data_len, timestamp);
-		audio_payload_->reset();
+		callback_.OnRtmpullAACData((uint8_t*)audio_payload_.data(), audio_payload_.length(), timestamp);
+		audio_payload_.clear();
 	}
 
 	return ret;
@@ -348,96 +338,96 @@ int AnyRtmpPull::GotAudioSample(u_int32_t timestamp, SrsCodecSample *sample)
 
 void AnyRtmpPull::RescanVideoframe(const char*pdata, int len, uint32_t timestamp)
 {
-    int nal_type = pdata[4] & 0x1f;
-    const char *p = pdata;
-    if (nal_type == 7)
-    {// keyframe
-        int find7 = 0;
-        const char* ptr7 = NULL;
-        int size7 = 0;
-        int find8 = 0;
-        const char* ptr8 = NULL;
-        int size8 = 0;
-        const char* ptr5 = NULL;
-        int size5 = 0;
-        int head01 = 4;
-        for (int i = 4; i < len - 4; i++)
-        {
-            if ((p[i] == 0x0 && p[i + 1] == 0x0 && p[i + 2] == 0x0 && p[i + 3] == 0x1) || (p[i] == 0x0 && p[i + 1] == 0x0 && p[i + 2] == 0x1))
-            {
-                if (p[i + 2] == 0x01)
-                    head01 = 3;
-                else
-                    head01 = 4;
-                if (find7 == 0)
-                {
-                    find7 = i;
-                    ptr7 = p;
-                    size7 = find7;
-                    i++;
-                }
-                else if (find8 == 0)
-                {
-                    find8 = i;
-                    ptr8 = p + find7 ;
-                    size8 = find8 - find7;
-                    const char* ptr = p + i;
-                    if ((ptr[head01] & 0x1f) == 5)
-                    {
-                        ptr5 = p + find8 + head01;
-                        size5 = len - find8 - head01;
-                        break;
-                    }
-                }
-                else
-                {
-                    ptr5 = p + i + head01;
-                    size5 = len - i - head01;
-                    break;
-                }
-            }
-        }
-        video_payload_->append(ptr7, size7);
-        video_payload_->append(ptr8, size8);
-        video_payload_->append((const char*)fresh_nalu_header, 4);
-        video_payload_->append(ptr5, size5);
-        callback_.OnRtmpullH264Data((uint8_t*)video_payload_->_data, video_payload_->_data_len, timestamp);
-        video_payload_->reset();
-    }
-    else 
-    {
-        video_payload_->append(pdata, len);
-        callback_.OnRtmpullH264Data((uint8_t*)video_payload_->_data, video_payload_->_data_len, timestamp);
-        video_payload_->reset();
-    }
+	int nal_type = pdata[4] & 0x1f;
+	const char *p = pdata;
+	if (nal_type == 7)
+	{// keyframe
+		int find7 = 0;
+		const char* ptr7 = NULL;
+		int size7 = 0;
+		int find8 = 0;
+		const char* ptr8 = NULL;
+		int size8 = 0;
+		const char* ptr5 = NULL;
+		int size5 = 0;
+		int head01 = 4;
+		for (int i = 4; i < len - 4; i++)
+		{
+			if ((p[i] == 0x0 && p[i + 1] == 0x0 && p[i + 2] == 0x0 && p[i + 3] == 0x1) || (p[i] == 0x0 && p[i + 1] == 0x0 && p[i + 2] == 0x1))
+			{
+				if (p[i + 2] == 0x01)
+					head01 = 3;
+				else
+					head01 = 4;
+				if (find7 == 0)
+				{
+					find7 = i;
+					ptr7 = p;
+					size7 = find7;
+					i++;
+				}
+				else if (find8 == 0)
+				{
+					find8 = i;
+					ptr8 = p + find7 ;
+					size8 = find8 - find7;
+					const char* ptr = p + i;
+					if ((ptr[head01] & 0x1f) == 5)
+					{
+						ptr5 = p + find8 + head01;
+						size5 = len - find8 - head01;
+						break;
+					}
+				}
+				else
+				{
+					ptr5 = p + i + head01;
+					size5 = len - i - head01;
+					break;
+				}
+			}
+		}
+		video_payload_.append(ptr7, size7);
+		video_payload_.append(ptr8, size8);
+		video_payload_.append((const char*)fresh_nalu_header, 4);
+		video_payload_.append(ptr5, size5);
+		callback_.OnRtmpullH264Data((uint8_t*)video_payload_.data(), video_payload_.size(), timestamp);
+		video_payload_.clear();
+	}
+	else 
+	{
+		video_payload_.append(pdata, len);
+		callback_.OnRtmpullH264Data((uint8_t*)video_payload_.data(), video_payload_.size(), timestamp);
+		video_payload_.clear();
+	}
 
 }
 
 void AnyRtmpPull::CallConnect()
 {
 	retry_ct_ = 0;
-    connected_ = true;
-    callback_.OnRtmpullConnected();
+	connected_ = true;
+	callback_.OnRtmpullConnected();
 }
 
 void AnyRtmpPull::CallDisconnect()
 {
-    rtc::CritScope l(&cs_rtmp_);
-    if (rtmp_) {
-        srs_rtmp_destroy(rtmp_);
-        rtmp_ = NULL;
-    }
-    if(rtmp_status_ != RS_PLY_Closed) {
-        rtmp_status_ = RS_PLY_Init;
-        retry_ct_ ++;
-        if(retry_ct_ <= MAX_RETRY_TIME)
-        {
-            rtmp_ = srs_rtmp_create(str_url_.c_str());
-        } else {
-            if(connected_)
-                callback_.OnRtmpullDisconnect();
-            else
-                callback_.OnRtmpullFailed();
-        }
-    }
+	rtc::CritScope l(&cs_rtmp_);
+	if (rtmp_) {
+		srs_rtmp_destroy(rtmp_);
+		rtmp_ = NULL;
+	}
+	if(rtmp_status_ != RS_PLY_Closed) {
+		rtmp_status_ = RS_PLY_Init;
+		retry_ct_ ++;
+		if(retry_ct_ <= MAX_RETRY_TIME)
+		{
+			rtmp_ = srs_rtmp_create(str_url_.c_str());
+		} else {
+			if(connected_)
+				callback_.OnRtmpullDisconnect();
+			else
+				callback_.OnRtmpullFailed();
+		}
+	}
 }

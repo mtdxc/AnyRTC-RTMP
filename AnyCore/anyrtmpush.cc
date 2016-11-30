@@ -1,4 +1,4 @@
-/*
+﻿/*
 *  Copyright (c) 2016 The AnyRTC project authors. All Rights Reserved.
 *
 *  Please visit https://www.anyrtc.io for detail.
@@ -20,6 +20,10 @@
 #include "srs_librtmp.h"
 #include <assert.h>
 #include "webrtc/base/logging.h"
+
+EncData::~EncData() {
+  delete[] _data;
+}
 
 #define MAX_RETRY_TIME	3
 AnyRtmpPush::AnyRtmpPush(AnyRtmpushCallback&callback, const std::string&url)
@@ -60,14 +64,28 @@ AnyRtmpPush::~AnyRtmpPush(void)
 		srs_rtmp_destroy(rtmp_);
 		rtmp_ = NULL;
 	}
+	clearSendList();
+}
 
+void AnyRtmpPush::clearSendList(){
+	rtc::CritScope l(&cs_list_enc_);
 	std::list<EncData*>::iterator iter = lst_enc_data_.begin();
 	while (iter != lst_enc_data_.end()) {
 		EncData* ptr = *iter;
 		lst_enc_data_.erase(iter++);
-		delete[] ptr->_data;
 		delete ptr;
 	}
+}
+
+uint32_t AnyRtmpPush::getSendDelay() {
+	uint32_t delayMs = 0;
+	rtc::CritScope l(&cs_list_enc_);
+	if (lst_enc_data_.size() > 0) {
+		EncData* frontprt = lst_enc_data_.front();
+		EncData* backptr = lst_enc_data_.back();
+		delayMs = backptr->_dts - frontprt->_dts;
+	}
+	return delayMs;
 }
 
 void AnyRtmpPush::EnableOnlyAudioMode()
@@ -97,6 +115,7 @@ void AnyRtmpPush::SetAudioParameter(int samplerate, int pcmbitsize, int channel)
 		sound_rate_ = 1;
 		break;
 	default:
+		sound_rate_ = 0;
 		assert(false);
 		break;
 	};
@@ -138,7 +157,10 @@ void AnyRtmpPush::SetH264Data(uint8_t* pData, int len, uint32_t ts)
 	if(need_keyframe_)
 		return;
 	if(nal_type == 7)
-	{// keyframe
+	{// keyframe @跟音频一样做就行，srs会处理好sps和pps的事情（不能这样干，否则看不了视频？）
+		// GotH264Nal(pData, len, ts);
+		// return;
+
 		int find7 = 0;
 		uint8_t* ptr7 = NULL;
 		int size7 = 0;
@@ -192,7 +214,7 @@ void AnyRtmpPush::SetH264Data(uint8_t* pData, int len, uint32_t ts)
 	else 
 	{
 		GotH264Nal(pData, len, ts);
-    }
+  }
 }
 
 void AnyRtmpPush::SetAacData(uint8_t* pData, int nLen, uint32_t ts)
@@ -203,7 +225,6 @@ void AnyRtmpPush::SetAacData(uint8_t* pData, int nLen, uint32_t ts)
 	pdata->_data = new uint8_t[nLen];
 	memcpy(pdata->_data, pData, nLen);
 	pdata->_dataLen = nLen;
-	pdata->_bVideo = false;
 	pdata->_type = AUDIO_DATA;
 	pdata->_dts = ts;
 	rtc::CritScope l(&cs_list_enc_);
@@ -342,7 +363,6 @@ void AnyRtmpPush::setMetaData(uint8_t* pData, int nLen, uint32_t ts)
 	pdata->_data = new uint8_t[nLen];
 	memcpy(pdata->_data, pData, nLen);
 	pdata->_dataLen = nLen;
-	pdata->_bVideo = false;
 	pdata->_type = META_DATA;
 	pdata->_dts = ts;
 	rtc::CritScope l(&cs_list_enc_);
@@ -355,7 +375,6 @@ void AnyRtmpPush::GotH264Nal(uint8_t* pData, int nLen, uint32_t ts)
 	pdata->_data = new uint8_t[nLen];
 	memcpy(pdata->_data, pData, nLen);
 	pdata->_dataLen = nLen;
-	pdata->_bVideo = true;
 	pdata->_type = VIDEO_DATA;
 	pdata->_dts = ts;
 	rtc::CritScope l(&cs_list_enc_);
@@ -422,16 +441,7 @@ void AnyRtmpPush::CallConnect()
 {
 	need_keyframe_ = true;
 	retrys_ = 0;
-	{
-		rtc::CritScope l(&cs_list_enc_);
-		std::list<EncData*>::iterator iter = lst_enc_data_.begin();
-		while (iter != lst_enc_data_.end()) {
-			EncData* ptr = *iter;
-			lst_enc_data_.erase(iter++);
-			delete[] ptr->_data;
-			delete ptr;
-		}
-	}
+	clearSendList();
 	callback_.OnRtmpConnected();
 }
 
@@ -450,6 +460,7 @@ void AnyRtmpPush::CallDisconnect()
             if(retrys_ <= MAX_RETRY_TIME)
             {
                 rtmp_ = srs_rtmp_create(str_url_.c_str());
+				//@todo change status to RS_STM_Init
                 callback_.OnRtmpReconnecting(retrys_);
             } else {
                 callback_.OnRtmpDisconnect();
@@ -463,24 +474,24 @@ void AnyRtmpPush::CallStatusEvent(int delayMs, int netBand)
 	callback_.OnRtmpStatusEvent(delayMs, netBand);
 }
 
+EncData* AnyRtmpPush::popData() {
+	EncData* dataPtr = NULL;
+	rtc::CritScope l(&cs_list_enc_);
+	if (lst_enc_data_.size() > 0) {
+		dataPtr = lst_enc_data_.front();
+		lst_enc_data_.pop_front();
+	}
+	return dataPtr;
+}
 void AnyRtmpPush::DoSendData()
 {
-	EncData* dataPtr = NULL;
-	{
-		rtc::CritScope l(&cs_list_enc_);
-		if (lst_enc_data_.size() > 0) {
-			dataPtr = lst_enc_data_.front();
-			lst_enc_data_.pop_front();
-		}
-	}
-
+	EncData* dataPtr = popData();
 	if (dataPtr != NULL) {
 		if (dataPtr->_type == VIDEO_DATA) {
 
 			char *ptr = (char*)dataPtr->_data;
 			int len = dataPtr->_dataLen;
-			int ret = 0;
-			ret = srs_h264_write_raw_frames(rtmp_, ptr, len, dataPtr->_dts, dataPtr->_dts);
+			int ret = srs_h264_write_raw_frames(rtmp_, ptr, len, dataPtr->_dts, dataPtr->_dts);
 
 			if (ret != 0) {
 				if (srs_h264_is_dvbsp_error(ret)) {
@@ -510,7 +521,7 @@ void AnyRtmpPush::DoSendData()
 			}
 		}
 		else if(dataPtr->_type == META_DATA){
-            int ret = srs_rtmp_write_packet(rtmp_, SRS_RTMP_TYPE_SCRIPT, dataPtr->_dts, (char*)dataPtr->_data, dataPtr->_dataLen);
+			int ret = srs_rtmp_write_packet(rtmp_, SRS_RTMP_TYPE_SCRIPT, dataPtr->_dts, (char*)dataPtr->_data, dataPtr->_dataLen);
 			if (ret != 0) {
 				srs_human_trace("send metadata failed. ret=%d", ret);
 			}
@@ -518,7 +529,6 @@ void AnyRtmpPush::DoSendData()
 		}
 
 		net_band_ += dataPtr->_dataLen;
-		delete[] dataPtr->_data;
 		delete dataPtr;
 	}
 
@@ -526,15 +536,7 @@ void AnyRtmpPush::DoSendData()
 	if(stat_time_ <= rtc::Time())
 	{
 		stat_time_ = rtc::Time() + 1000;
-		uint32_t delayMs = 0;
-
-		rtc::CritScope l(&cs_list_enc_);
-		if (lst_enc_data_.size() > 0) {
-			EncData* frontprt = lst_enc_data_.front();
-			EncData* backptr = lst_enc_data_.back();
-			delayMs = backptr->_dts - frontprt->_dts;
-		}
-
+		uint32_t delayMs = getSendDelay();
 		CallStatusEvent(delayMs, net_band_*(8+1));
 		net_band_ = 0;
 	}

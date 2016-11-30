@@ -1,4 +1,4 @@
-/*
+﻿/*
 *  Copyright (c) 2016 The AnyRTC project authors. All Rights Reserved.
 *
 *  Please visit https://www.anyrtc.io for detail.
@@ -40,6 +40,7 @@ PlyDecoder::PlyDecoder()
 		codecSetting.height = 480;
 		h264_decoder_->InitDecode(&codecSetting, 1);
 		h264_decoder_->RegisterDecodeCompleteCallback(this);
+		// why not use same object?
 		webrtc::VideoCodec setting;
 		setting.width = 640;
 		setting.height = 480;
@@ -49,7 +50,7 @@ PlyDecoder::PlyDecoder()
 			//@AnyRTC - Error
 		}
 	}
-
+	// 10ms aac数据
 	aac_frame_per10ms_size_ = (aac_sample_hz_ / 100) * sizeof(int16_t) * aac_channels_;
 	running_ = true;
 	rtc::Thread::Start();
@@ -98,12 +99,14 @@ int  PlyDecoder::CacheTime()
 
 void PlyDecoder::AddH264Data(const uint8_t*pdata, int len, uint32_t ts)
 {
+	// 264 add in queue, and process in plydecoder thread.
 	if (ply_buffer_) {
 		ply_buffer_->CacheH264Data(pdata, len, ts);
 	}
 }
-void PlyDecoder::AddAACData(const uint8_t*pdata, int len, uint32_t ts)
+void PlyDecoder::AddAACData(const uint8_t* pdata, int len, uint32_t ts)
 {
+	// aac decode in place
 	if (ply_buffer_) {
 		if (aac_decoder_ == NULL) {
 			aac_decoder_ = aac_decoder_open((unsigned char*)pdata, len, &aac_channels_, &aac_sample_hz_);
@@ -114,7 +117,7 @@ void PlyDecoder::AddAACData(const uint8_t*pdata, int len, uint32_t ts)
 		else {
 			unsigned int outlen = 0;
 			if (aac_decoder_decode_frame(aac_decoder_, (unsigned char*)pdata, len, audio_cache_ + a_cache_len_, &outlen) > 0) {
-				//printf("");
+				// 分成10ms一帧放到 ply_buffer 中，残留帧放到解码缓冲区中
 				a_cache_len_ += outlen;
 				int ct = 0;
 				int fsize = aac_frame_per10ms_size_;
@@ -163,6 +166,7 @@ void PlyDecoder::Run()
 				webrtc::EncodedImage encoded_image;
 				encoded_image._buffer = (uint8_t*)pkt->_data;
 				encoded_image._length = pkt->_data_len;
+				// h264 padiing
 				encoded_image._size = pkt->_data_len + 8;
 				if (frameType == 7) {
 					encoded_image._frameType = webrtc::kVideoFrameKey;
@@ -171,8 +175,8 @@ void PlyDecoder::Run()
 					encoded_image._frameType = webrtc::kVideoFrameDelta;
 				}
 				encoded_image._completeFrame = true;
-                webrtc::RTPFragmentationHeader frag_info;
-                int ret = h264_decoder_->Decode(encoded_image, false, &frag_info);
+				webrtc::RTPFragmentationHeader frag_info;
+				int ret = h264_decoder_->Decode(encoded_image, false, &frag_info);
 				if (ret != 0)
 				{
 				}
@@ -199,7 +203,7 @@ bool PlyDecoder::OnNeedDecodeData(PlyPacket* pkt)
 		int type = pdata[4] & 0x1f;
 		rtc::CritScope cs(&cs_list_h264_);
 		if (type == 7) {
-			//* Skip all buffer data, beacause decode is so slow!!!
+			//* Skip all buffer data, beacause decode is so slow!!! 出现关键帧就丢掉所有缓存(未播放)的包
 			std::list<PlyPacket*>::iterator iter = lst_h264_buffer_.begin();
 			while (iter != lst_h264_buffer_.end()) {
 				PlyPacket* pkt = *iter;
@@ -217,8 +221,9 @@ int32_t PlyDecoder::Decoded(webrtc::VideoFrame& decodedImage)
 {
 	const cricket::WebRtcVideoFrame render_frame(
 		decodedImage.video_frame_buffer(),
-		decodedImage.render_time_ms() * rtc::kNumNanosecsPerMillisec, decodedImage.rotation());
-
+		decodedImage.render_time_ms() * rtc::kNumNanosecsPerMillisec, 
+		decodedImage.rotation());
+	// 解码展示
 	if (video_render_ != NULL) {
 		video_render_->OnFrame(render_frame);
 	}
