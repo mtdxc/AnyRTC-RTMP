@@ -277,10 +277,12 @@
   <ItemGroup>
     <ClInclude Include="h264_bitstream_parser.h" />
     <ClInclude Include="quality_scaler.h" />
+    <ClInclude Include="simulcast_rate_allocator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="h264_bitstream_parser.cc" />
     <ClCompile Include="quality_scaler.cc" />
+    <ClCompile Include="simulcast_rate_allocator.cc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />

@@ -119,10 +119,10 @@ int32_t H264DecoderImpl::Decode(const EncodedImage& input_image,
   }
 
   int32_t ret = 0;
-  uint8_t* nal[3] = {0};
+  uint8_t* yuv[3] = {0};
   SBufferInfo sbi = {0};
   sbi.uiInBsTimeStamp = input_image.capture_time_ms_;
-  int result = decoder_->DecodeFrame2(input_image._buffer, (int)input_image._size, nal, &sbi);
+  int result = decoder_->DecodeFrame2(input_image._buffer, (int)input_image._length, yuv, &sbi);
   if (result != 0) {
     LOG(LS_ERROR) << "DecodeFrame2 error: " << result;
     ReportError();
@@ -132,7 +132,7 @@ int32_t H264DecoderImpl::Decode(const EncodedImage& input_image,
   if (sbi.iBufferStatus == 1) {
     SSysMEMBuffer& ssb = sbi.UsrData.sSystemBuffer;
     VideoFrame frame;
-    frame.CreateFrame(nal[0], nal[1], nal[2], 
+    frame.CreateFrame(yuv[0], yuv[1], yuv[2], 
       ssb.iWidth, ssb.iHeight,
       ssb.iStride[0], ssb.iStride[1], ssb.iStride[1],
       kVideoRotation_0);

@@ -104,6 +104,7 @@ LOCAL_SRC_FILES += \
 		modules/video_coding/codecs/h264/h264_encoder_impl.cc \
 		modules/video_coding/codecs/h264/h264_decoder_impl.cc \
 		modules/video_coding/utility/h264_bitstream_parser.cc \
+		modules/video_coding/utility/simulcast_rate_allocator.cc \
 		modules/video_coding/utility/quality_scaler.cc
 	
 LOCAL_SRC_FILES += \

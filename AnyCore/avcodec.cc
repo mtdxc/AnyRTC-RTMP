@@ -424,8 +424,11 @@ int32_t V_H264Encoder::Encoded(const EncodedImage& encoded_image,
                           const CodecSpecificInfo* codec_specific_info,
                           const RTPFragmentationHeader* fragmentation)
 {
-	callback_.OnEncodeDataCallback(false, encoded_image._buffer, encoded_image._length, rtc::Time());
-	return 0;
+  //@todo process 
+  int idx = codec_specific_info->codecSpecific.H264.simulcast_idx;
+  if(idx==0)
+    callback_.OnEncodeDataCallback(false, encoded_image._buffer, encoded_image._length, rtc::Time());
+  return 0;
 }
 
 

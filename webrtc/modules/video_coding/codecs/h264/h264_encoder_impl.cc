@@ -12,7 +12,8 @@
 #include "webrtc/modules/video_coding/codecs/h264/h264_encoder_impl.h"
 
 #include <limits>
-
+#include <iomanip>
+#include <map>
 #include "third_party/openh264/src/codec/api/svc/codec_api.h"
 #include "third_party/openh264/src/codec/api/svc/codec_app_def.h"
 #include "third_party/openh264/src/codec/api/svc/codec_def.h"
@@ -67,7 +68,12 @@ FrameType ConvertToVideoFrameType(EVideoFrameType type) {
 }
 
 }  // namespace
-
+//#define H264_DUMP
+#ifdef H264_DUMP
+#define USE_TEMPORAL_COUNT 2
+std::map<int, std::map<int, uint64_t>> stats_map_;
+std::vector<FILE*> dump_hanles_;
+#endif
 // Helper method used by H264EncoderImpl::Encode.
 // Copies the encoded bytes from |info| to |encoded_image| and updates the
 // fragmentation information of |frag_header|. The |encoded_image->_buffer| may
@@ -147,6 +153,104 @@ static void RtpFragmentize(EncodedImage* encoded_image,
   }
 }
 
+int32_t H264EncoderImpl::RtpFragAndCallback(EncodedImage* encoded_image, SFrameBSInfo* info)
+{
+  // info->iFrameSizeInBytes == required_size
+  // info->iTemporalId always 0, use layerInfo.uiTemporalId
+  // LOG(INFO) << "GotFrame " << info->uiTimeStamp << "@"<< info->iFrameSizeInBytes << " "  << info->iTemporalId << " " << info->iSubSeqId << " type=" << info->eFrameType;
+  char hex[6] = { 0 };
+  static int drop_count = 0;
+  static int drop_max = 3;
+  struct FlagStream {
+    int total = 0;
+    int curnal = 0;
+    int len = 0;
+    RTPFragmentationHeader frag;
+  };
+  for (int i = 0; i < kMaxSimulcastStreams; i++)
+    encoded_buffers_[i].clear();
+  // Calculate minimum buffer size required to hold encoded data.
+  std::map<uint8_t, FlagStream> spatial_map;
+  for (int layer = 0; layer < info->iLayerNum; ++layer) {
+    size_t layer_len = 0;
+    std::string szNalType;
+    const SLayerBSInfo& layerInfo = info->sLayerInfo[layer];
+    for (int nal = 0; nal < layerInfo.iNalCount; ++nal) {
+      RTC_CHECK_GE(layerInfo.pNalLengthInByte[nal], 4);
+      sprintf(hex, "%02X ", layerInfo.pBsBuf[layer_len + 4]); szNalType += hex;
+      spatial_map[layerInfo.uiSpatialId].total++;
+      layer_len += layerInfo.pNalLengthInByte[nal];
+    }
+    // assign layer
+    if (layerInfo.uiSpatialId < kMaxSimulcastStreams)
+      encoded_buffers_[layerInfo.uiSpatialId].append((char*)layerInfo.pBsBuf, layer_len);
+#ifdef H264_DUMP
+    // log
+    LOG(INFO) << "GotLayer " << (int)layerInfo.uiLayerType << "/" << std::setw(5) << layer_len
+      << " " << (int)layerInfo.uiTemporalId << "," << (int)layerInfo.uiSpatialId << "," << (int)layerInfo.uiQualityId
+      << " with " << layerInfo.iNalCount << " nals: " << szNalType;
+    stats_map_[layerInfo.uiSpatialId][layerInfo.uiTemporalId] += layer_len;
+
+    // dump to file
+    FILE** p = &dump_hanles_[layerInfo.uiSpatialId *USE_TEMPORAL_COUNT];
+    for (int i = 0; i < USE_TEMPORAL_COUNT - layerInfo.uiTemporalId; i++) {
+      if (p[i]) {// dump for layer yuv
+        if (drop_max > 0 && i < layerInfo.uiTemporalId && ++drop_count == drop_max) {
+          LOG(INFO) << i << " DropLayer " << (int)layerInfo.uiSpatialId << "," << (int)layerInfo.uiTemporalId << ":" << szNalType;
+          drop_count = 0;
+          continue;
+        }
+        fwrite(layerInfo.pBsBuf, 1, layer_len, p[i]);
+      }
+    }
+#endif
+  }
+
+  // Iterate layers and NAL units, note each NAL unit as a fragment and copy
+  // the data to |encoded_image->_buffer|.
+  const uint8_t start_code[4] = { 0, 0, 0, 1 };
+  for (std::map<uint8_t, FlagStream>::iterator it = spatial_map.begin();
+    it != spatial_map.end(); it++)
+  {
+    FlagStream& stm = it->second;
+    stm.frag.VerifyAndAllocateFragmentationHeader(stm.total);
+  }
+
+  for (int layer = 0; layer < info->iLayerNum; ++layer) {
+    const SLayerBSInfo& layerInfo = info->sLayerInfo[layer];
+    FlagStream& stream = spatial_map[layerInfo.uiSpatialId];
+    // Iterate NAL units making up this layer, noting fragments.
+    for (int nal = 0; nal < layerInfo.iNalCount; ++nal) {
+      // Because the sum of all layer lengths, |required_size|, fits in a
+      // |size_t|, we know that any indices in-between will not overflow.
+      RTC_DCHECK_GE(layerInfo.pNalLengthInByte[nal], 4); // 00 00 00 01
+                                                         // dump for nal type
+      stream.frag.fragmentationOffset[stream.curnal] = stream.len + sizeof(start_code);
+      stream.frag.fragmentationLength[stream.curnal] = layerInfo.pNalLengthInByte[nal] - sizeof(start_code);
+      stream.len += layerInfo.pNalLengthInByte[nal];
+      stream.curnal++;
+    }
+  }
+  for (std::map<uint8_t, FlagStream>::iterator it = spatial_map.begin();
+    it != spatial_map.end(); it++) {
+    int spatial_id = it->first;
+    FlagStream& stream = it->second;
+    if (stream.len > 0) {
+      encoded_image->_frameType = ConvertToVideoFrameType(info->eFrameType);
+      encoded_image->_encodedWidth = codec_settings_.simulcastStream[spatial_id].width;
+      encoded_image->_encodedHeight = codec_settings_.simulcastStream[spatial_id].height;
+      encoded_image->_length = stream.len;// encoded_buffers_[spatial_id].length();
+      encoded_image->_buffer = (uint8_t*)encoded_buffers_[spatial_id].data();
+      // Deliver encoded image.
+      CodecSpecificInfo codec_specific;
+      codec_specific.codecType = kVideoCodecH264;
+      codec_specific.codecSpecific.H264.simulcast_idx = spatial_id;
+      encoded_image_callback_->Encoded(encoded_image_, &codec_specific, &stream.frag);
+    }
+  }
+  return WEBRTC_VIDEO_CODEC_OK;
+}
+
 H264EncoderImpl::H264EncoderImpl()
     : openh264_encoder_(nullptr),
       encoded_image_callback_(nullptr),
@@ -203,8 +307,48 @@ int32_t H264EncoderImpl::InitEncode(const VideoCodec* codec_settings,
   codec_settings_ = *codec_settings;
   if (codec_settings_.targetBitrate == 0)
     codec_settings_.targetBitrate = codec_settings_.startBitrate;
+#ifdef H264_DUMP
+  // 2 Spatial
+  if (codec_settings_.width * codec_settings_.height > 600 * 300) {
+    codec_settings_.numberOfSimulcastStreams = 2;
+    codec_settings_.simulcastStream[0].width = codec_settings_.width >> 1;
+    codec_settings_.simulcastStream[0].height = codec_settings_.height >> 1;
+    codec_settings_.simulcastStream[0].maxBitrate = codec_settings_.maxBitrate >> 2;
+    codec_settings_.simulcastStream[0].targetBitrate = codec_settings_.targetBitrate / 4;
+    codec_settings_.simulcastStream[0].minBitrate = codec_settings_.minBitrate / 4;
+    codec_settings_.simulcastStream[0].qpMax = codec_settings_.qpMax;
+
+    codec_settings_.simulcastStream[1].width = codec_settings_.width;
+    codec_settings_.simulcastStream[1].height = codec_settings_.height;
+    codec_settings_.simulcastStream[1].maxBitrate = codec_settings_.maxBitrate;
+    codec_settings_.simulcastStream[1].targetBitrate = codec_settings_.targetBitrate * 3 / 4;
+    codec_settings_.simulcastStream[1].minBitrate = codec_settings_.minBitrate * 3 / 4;
+    codec_settings_.simulcastStream[1].qpMax = codec_settings_.qpMax;
+  }
+  else
+    codec_settings_.numberOfSimulcastStreams = 1;
+
+  // 2 Temporal
+  codec_settings_.simulcastStream[0].numberOfTemporalLayers = USE_TEMPORAL_COUNT;
+
+  // add by caiqm
+  stats_map_.clear();
+  for (int i = 0; i < codec_settings_.numberOfSimulcastStreams; i++)
+  {
+    for (int j = 0; j < USE_TEMPORAL_COUNT; j++)
+    {
+      char path[256];
+      sprintf(path, "C:\\360Downloads\\%d_dump%dx%d.264", j,
+        codec_settings_.simulcastStream[i].width, codec_settings_.simulcastStream[i].height);
+      dump_hanles_.push_back(fopen(path, "wb"));
+    }
+  }
+#endif
 
   SEncParamExt encoder_params = CreateEncoderParams();
+  if (codec_settings_.numberOfSimulcastStreams > 1)
+    rate_allocator_.reset(new SimulcastRateAllocator(codec_settings_));
+
   // Initialize.
   if (openh264_encoder_->InitializeExt(&encoder_params) != 0) {
     LOG(LS_ERROR) << "Failed to initialize OpenH264 encoder";
@@ -239,6 +383,27 @@ int32_t H264EncoderImpl::Release() {
     WelsDestroySVCEncoder(openh264_encoder_);
     openh264_encoder_ = nullptr;
   }
+#ifdef H264_DUMP
+  // add by caiqm dump
+  for (auto f : dump_hanles_) {
+    if (f) fclose(f);
+  }
+  dump_hanles_.clear();
+
+  for (auto spatial : stats_map_){
+    int64_t sum = 0;
+    for (auto v : spatial.second){
+      sum += v.second;
+    }
+    LOG(INFO) << spatial.first << ": encode " << sum << " bytes, with " << spatial.second.size() << " temporal streams";
+    if (spatial.second.size() > 1) {
+      for (auto temporal : spatial.second) {
+        LOG(INFO) << temporal.first << "> " << temporal.second * 100.0 / sum << "% " << temporal.second;
+      }
+    }
+  }
+  stats_map_.clear();
+#endif
   encoded_image_._buffer = nullptr;
   encoded_image_buffer_.reset();
   return WEBRTC_VIDEO_CODEC_OK;
@@ -260,10 +425,19 @@ int32_t H264EncoderImpl::SetRates(uint32_t bitrate, uint32_t framerate) {
 
   SBitrateInfo target_bitrate;
   memset(&target_bitrate, 0, sizeof(SBitrateInfo));
-  target_bitrate.iLayer = SPATIAL_LAYER_ALL,
-  target_bitrate.iBitrate = codec_settings_.targetBitrate * 1000;
-  openh264_encoder_->SetOption(ENCODER_OPTION_BITRATE,
-                               &target_bitrate);
+  if (rate_allocator_) {
+    std::vector<uint32_t> rates = rate_allocator_->GetAllocation(bitrate);
+    for (int i = 0; i < rates.size(); i++) {
+      target_bitrate.iLayer = (LAYER_NUM)i;
+      target_bitrate.iBitrate = rates[i] * 1000;
+      openh264_encoder_->SetOption(ENCODER_OPTION_BITRATE, &target_bitrate);
+    }
+  }
+  else {
+    target_bitrate.iLayer = SPATIAL_LAYER_ALL;
+    target_bitrate.iBitrate = codec_settings_.targetBitrate * 1000;
+    openh264_encoder_->SetOption(ENCODER_OPTION_BITRATE, &target_bitrate);
+  }
   float max_framerate = static_cast<float>(codec_settings_.maxFramerate);
   openh264_encoder_->SetOption(ENCODER_OPTION_FRAME_RATE,
                                &max_framerate);
@@ -291,6 +465,7 @@ int32_t H264EncoderImpl::Encode(const VideoFrame& input_frame,
   quality_scaler_.OnEncodeFrame(input_frame.width(), input_frame.height());
   rtc::scoped_refptr<const VideoFrameBuffer> frame_buffer =
       quality_scaler_.GetScaledBuffer(input_frame.video_frame_buffer());
+  // how to process in simucast ?
   if (frame_buffer->width() != codec_settings_.width ||
       frame_buffer->height() != codec_settings_.height) {
     LOG(LS_INFO) << "Encoder reinitialized from " << codec_settings_.width
@@ -355,6 +530,7 @@ int32_t H264EncoderImpl::Encode(const VideoFrame& input_frame,
   encoded_image_.capture_time_ms_ = input_frame.render_time_ms();
   encoded_image_.rotation_ = input_frame.rotation();
   encoded_image_._frameType = ConvertToVideoFrameType(info.eFrameType);
+  return RtpFragAndCallback(&encoded_image_, &info);
 
   // Split encoded image up into fragments. This also updates |encoded_image_|.
   RTPFragmentationHeader frag_header;
@@ -431,16 +607,33 @@ SEncParamExt H264EncoderImpl::CreateEncoderParams() const {
   // >1: number of threads
   encoder_params.iMultipleThreadIdc = NumberOfThreads(
       encoder_params.iPicWidth, encoder_params.iPicHeight, number_of_cores_);
-  // The base spatial layer 0 is the only one we use.
-  encoder_params.sSpatialLayers[0].iVideoWidth = encoder_params.iPicWidth;
-  encoder_params.sSpatialLayers[0].iVideoHeight = encoder_params.iPicHeight;
-  encoder_params.sSpatialLayers[0].fFrameRate = encoder_params.fMaxFrameRate;
-  encoder_params.sSpatialLayers[0].iSpatialBitrate =
-      encoder_params.iTargetBitrate;
-  encoder_params.sSpatialLayers[0].iMaxSpatialBitrate =
-      encoder_params.iMaxBitrate;
-  // Slice num according to number of threads.
-  encoder_params.sSpatialLayers[0].sSliceCfg.uiSliceMode = SM_AUTO_SLICE;
+  
+  if (codec_settings_.numberOfSimulcastStreams > 1) {// set simulcast
+    encoder_params.bSimulcastAVC = true;
+    encoder_params.iSpatialLayerNum = codec_settings_.numberOfSimulcastStreams;
+    for (int i =0; i<codec_settings_.numberOfSimulcastStreams; i++){
+      encoder_params.sSpatialLayers[i].iVideoWidth = codec_settings_.simulcastStream[i].width;
+      encoder_params.sSpatialLayers[i].iVideoHeight = codec_settings_.simulcastStream[i].height;
+      encoder_params.sSpatialLayers[i].fFrameRate = encoder_params.fMaxFrameRate;
+      encoder_params.sSpatialLayers[i].iMaxSpatialBitrate = codec_settings_.simulcastStream[i].maxBitrate * 1000;
+      encoder_params.sSpatialLayers[i].iSpatialBitrate = codec_settings_.simulcastStream[i].targetBitrate * 1000;
+      encoder_params.sSpatialLayers[i].iDLayerQp = codec_settings_.simulcastStream[i].qpMax;
+      // Slice num according to number of threads.
+      encoder_params.sSpatialLayers[i].sSliceCfg.uiSliceMode = SM_FIXEDSLCNUM_SLICE;
+    }
+  }
+  else {// The base spatial layer 0 is the only one we use.
+    encoder_params.iSpatialLayerNum = 1;
+    encoder_params.sSpatialLayers[0].iVideoWidth = encoder_params.iPicWidth;
+    encoder_params.sSpatialLayers[0].iVideoHeight = encoder_params.iPicHeight;
+    encoder_params.sSpatialLayers[0].fFrameRate = encoder_params.fMaxFrameRate;
+    encoder_params.sSpatialLayers[0].iSpatialBitrate = encoder_params.iTargetBitrate;
+    encoder_params.sSpatialLayers[0].iMaxSpatialBitrate = encoder_params.iMaxBitrate;
+    // Slice num according to number of threads.
+    encoder_params.sSpatialLayers[0].sSliceCfg.uiSliceMode = SM_AUTO_SLICE;
+  }
+  if(codec_settings_.simulcastStream[0].numberOfTemporalLayers)
+    encoder_params.iTemporalLayerNum = codec_settings_.simulcastStream[0].numberOfTemporalLayers;
   //@Eric -- add for CONSTANT_ID(sps,pps)
   encoder_params.eSpsPpsIdStrategy = CONSTANT_ID;
 

@@ -77,7 +77,9 @@ struct CodecSpecificInfoGeneric {
   uint8_t simulcast_idx;
 };
 
-struct CodecSpecificInfoH264 {};
+struct CodecSpecificInfoH264 {
+  uint8_t simulcast_idx;
+};
 
 union CodecSpecificInfoUnion {
   CodecSpecificInfoGeneric generic;

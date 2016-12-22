@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		300CC2B11E0BAA2600DFC83D /* simulcast_rate_allocator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 300CC2B01E0BAA2600DFC83D /* simulcast_rate_allocator.cc */; };
 		78200AB01D8FD704009CA1B3 /* librtc_thirdparty.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B56B3F091D8C20800011F813 /* librtc_thirdparty.a */; };
 		78200AB21D8FD7C7009CA1B3 /* bitrate_adjuster.cc in Sources */ = {isa = PBXBuildFile; fileRef = 78200AB11D8FD7C7009CA1B3 /* bitrate_adjuster.cc */; };
 		78200AB71D8FD814009CA1B3 /* fileutils.cc in Sources */ = {isa = PBXBuildFile; fileRef = 78200AB31D8FD814009CA1B3 /* fileutils.cc */; };
@@ -382,6 +383,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		300CC2B01E0BAA2600DFC83D /* simulcast_rate_allocator.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = simulcast_rate_allocator.cc; sourceTree = "<group>"; };
+		300CC2B41E0BAA8C00DFC83D /* h264_bitstream_parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = h264_bitstream_parser.h; sourceTree = "<group>"; };
+		300CC2B61E0BAA9300DFC83D /* quality_scaler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = quality_scaler.h; sourceTree = "<group>"; };
+		300CC2B71E0BAA9D00DFC83D /* simulcast_rate_allocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = simulcast_rate_allocator.h; sourceTree = "<group>"; };
 		78200AB11D8FD7C7009CA1B3 /* bitrate_adjuster.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bitrate_adjuster.cc; sourceTree = "<group>"; };
 		78200AB31D8FD814009CA1B3 /* fileutils.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = fileutils.cc; sourceTree = "<group>"; };
 		78200AB41D8FD814009CA1B3 /* fileutils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fileutils.h; sourceTree = "<group>"; };
@@ -1422,6 +1427,10 @@
 		B56B3ADC1D8C047C0011F813 /* utility */ = {
 			isa = PBXGroup;
 			children = (
+				300CC2B71E0BAA9D00DFC83D /* simulcast_rate_allocator.h */,
+				300CC2B61E0BAA9300DFC83D /* quality_scaler.h */,
+				300CC2B41E0BAA8C00DFC83D /* h264_bitstream_parser.h */,
+				300CC2B01E0BAA2600DFC83D /* simulcast_rate_allocator.cc */,
 				B56B3ADD1D8C047C0011F813 /* h264_bitstream_parser.cc */,
 				B56B3AE21D8C047C0011F813 /* quality_scaler.cc */,
 			);
@@ -2255,6 +2264,7 @@
 				B56B3EB41D8C111E0011F813 /* GPUImageMovieWriter.m in Sources */,
 				B56B3BB21D8C047C0011F813 /* timing.cc in Sources */,
 				B56B3E581D8C111E0011F813 /* GPUImageAverageColor.m in Sources */,
+				300CC2B11E0BAA2600DFC83D /* simulcast_rate_allocator.cc in Sources */,
 				B56B3B521D8C047C0011F813 /* buffer.cc in Sources */,
 				B56B3C721D8C047C0011F813 /* RTCAudioSession.mm in Sources */,
 				B56B3EB71D8C111E0011F813 /* GPUImageNonMaximumSuppressionFilter.m in Sources */,

@@ -18,7 +18,7 @@
 #include "webrtc/modules/video_coding/codecs/h264/include/h264.h"
 #include "webrtc/modules/video_coding/utility/h264_bitstream_parser.h"
 #include "webrtc/modules/video_coding/utility/quality_scaler.h"
-
+#include "webrtc/modules/video_coding/utility/simulcast_rate_allocator.h"
 #include "third_party/openh264/src/codec/api/svc/codec_app_def.h"
 
 class ISVCEncoder;
@@ -51,7 +51,8 @@ class H264EncoderImpl : public H264Encoder {
   int32_t Encode(const VideoFrame& frame,
                  const CodecSpecificInfo* codec_specific_info,
                  const std::vector<FrameType>* frame_types) override;
-
+  int32_t RtpFragAndCallback(EncodedImage* encoded_image,
+    SFrameBSInfo* info);
   const char* ImplementationName() const override;
 
   // Unsupported / Do nothing.
@@ -63,6 +64,7 @@ class H264EncoderImpl : public H264Encoder {
   bool IsInitialized() const;
   SEncParamExt CreateEncoderParams() const;
 
+  std::unique_ptr<SimulcastRateAllocator> rate_allocator_;
   webrtc::H264BitstreamParser h264_bitstream_parser_;
   QualityScaler quality_scaler_;
   // Reports statistics with histograms.
@@ -76,7 +78,7 @@ class H264EncoderImpl : public H264Encoder {
   EncodedImage encoded_image_;
   std::unique_ptr<uint8_t[]> encoded_image_buffer_;
   EncodedImageCallback* encoded_image_callback_;
-
+  std::string encoded_buffers_[kMaxSimulcastStreams];
   bool has_reported_init_;
   bool has_reported_error_;
 };

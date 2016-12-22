@@ -25,7 +25,7 @@ IMPLEMENT_DYNAMIC(DlgRtmpPush, CDialog)
 
 DlgRtmpPush::DlgRtmpPush()
 	: CDialog(DlgRtmpPush::IDD)
-	, m_strUrl(_T(""))
+	, m_strUrl(_T("rtmp://121.196.200.99:1935/live/demo"))
 	, m_pAVRtmpstreamer(NULL)
 	, m_pDlgVideoMain(NULL)
 {
