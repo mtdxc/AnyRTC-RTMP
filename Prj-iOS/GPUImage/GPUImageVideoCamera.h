@@ -31,7 +31,7 @@ void setColorConversion709( GLfloat conversionMatrix[9] );
     AVCaptureDevice *_inputCamera;
     AVCaptureDevice *_microphone;
     AVCaptureDeviceInput *videoInput;
-	AVCaptureVideoDataOutput *videoOutput;
+    AVCaptureVideoDataOutput *videoOutput;
 
     BOOL capturePaused;
     GPUImageRotationMode outputRotation, internalRotation;
@@ -51,6 +51,7 @@ void setColorConversion709( GLfloat conversionMatrix[9] );
 
 /// This enables the capture session preset to be changed on the fly
 @property (readwrite, nonatomic, copy) NSString *captureSessionPreset;
+@property (readwrite, nonatomic, copy) NSString *deviceId;
 
 /// This sets the frame rate of the camera (iOS 5 and above only)
 /**
@@ -103,7 +104,7 @@ void setColorConversion709( GLfloat conversionMatrix[9] );
 /** Tear down the capture session
  */
 - (void)removeInputsAndOutputs;
-
+- (void)setDeviceId:(NSString*) did;
 /// @name Manage the camera video stream
 
 /** Start camera capturing

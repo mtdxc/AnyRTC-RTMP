@@ -62,10 +62,22 @@
         if(bBackCamera)
             position = AVCaptureDevicePositionBack;
         _videoCamera = [[GPUImageVideoCamera alloc] initWithCameraPosition:position];
+        if (@available(macos 14.0, ios 17.0, tvos 17.0, *)) {
+          AVCaptureDeviceDiscoverySession *videoevicesSession =
+                [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:@[AVCaptureDeviceTypeExternal]
+                                                                       mediaType:AVMediaTypeVideo
+                                                                        position:AVCaptureDevicePositionUnspecified];
+          for (AVCaptureDevice *device in videoevicesSession.devices) {
+            NSLog(@"%@", device);
+            _videoCamera.deviceId = device.uniqueID;
+            break;
+          }
+        }
         _videoCamera.outputImageOrientation = UIInterfaceOrientationPortrait;
         _videoCamera.horizontallyMirrorFrontFacingCamera = YES;
         _videoCamera.horizontallyMirrorRearFacingCamera = NO;
         _videoCamera.frameRate = 20;
+      
         self.nWidth = 480;
         self.nHeight = 640;
         self.bVideoEnable = false;
@@ -91,9 +103,8 @@
         return;
     if (!_isPreviewing) {
         _isPreviewing = YES;
-        [UIApplication sharedApplication].idleTimerDisabled = YES;
-        dispatch_async(dispatch_get_main_queue(), ^
-        {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [UIApplication sharedApplication].idleTimerDisabled = YES;
             [_videoCamera configureCaptureSession:sessionPreset];
             [_videoCamera startCameraCapture];
         });
@@ -107,9 +118,9 @@
         return;
     if (_isPreviewing) {
         _isPreviewing = NO;
-        [UIApplication sharedApplication].idleTimerDisabled = YES;
         dispatch_async(dispatch_get_main_queue(), ^{
-             [_videoCamera stopCameraCapture];
+            [UIApplication sharedApplication].idleTimerDisabled = YES;
+            [_videoCamera stopCameraCapture];
         });
        
     }

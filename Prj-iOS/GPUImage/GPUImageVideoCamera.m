@@ -48,6 +48,7 @@ void setColorConversion709( GLfloat conversionMatrix[9] )
 
 @implementation GPUImageVideoCamera
 
+@synthesize deviceId = _deviceId;
 @synthesize captureSessionPreset = _captureSessionPreset;
 @synthesize captureSession = _captureSession;
 @synthesize inputCamera = _inputCamera;
@@ -68,11 +69,11 @@ void setColorConversion709( GLfloat conversionMatrix[9] )
     }
     
     cameraProcessingQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH,0);
-	audioProcessingQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW,0);
+    audioProcessingQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW,0);
 
     frameRenderingSemaphore = dispatch_semaphore_create(1);
 
-	_frameRate = 0; // This will not set frame rate unless this value gets set to 1 or above
+    _frameRate = 0; // This will not set frame rate unless this value gets set to 1 or above
     _runBenchmark = NO;
     capturePaused = NO;
     outputRotation = kGPUImageNoRotation;
@@ -82,20 +83,35 @@ void setColorConversion709( GLfloat conversionMatrix[9] )
     
 	// Grab the back-facing or front-facing camera
     _inputCamera = nil;
-	NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
-	for (AVCaptureDevice *device in devices) 
-	{
-		if ([device position] == cameraPosition)
-		{
-			_inputCamera = device;
-		}
-	}
+  if (self.deviceId) {
+    _inputCamera = [AVCaptureDevice deviceWithUniqueID:self.deviceId];
+  }
+  else{
+    NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
+    for (AVCaptureDevice *device in devices)
+    {
+      if ([device position] == cameraPosition)
+      {
+        _inputCamera = device;
+      }
+    }
+  }
     
     if (!_inputCamera) {
         return nil;
     }
     
 	return self;
+}
+
+- (void)setDeviceId:(NSString*) devId {
+  AVCaptureDevice* dev = [AVCaptureDevice deviceWithUniqueID: devId];
+  if (dev) {
+    _inputCamera = dev;
+    _deviceId = devId;
+    //return true;
+  }
+  //return false;
 }
 
 - (BOOL)configureCaptureSession:(NSString *)sessionPreset
